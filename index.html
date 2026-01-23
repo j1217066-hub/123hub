@@ -2,6 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Gemini 技術分析選股 v.94</title>
     <script src="stockList.js"></script>
     <script src="indicators.js"></script>
@@ -9,117 +10,578 @@
     <script src="subEngine.js"></script>
     <script src="strategies.js"></script>
     <style>
-        /* 日系風格配色與版面 */
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; padding: 20px; background-color: #f7f8f6; color: #2d3436; }
-        .container { max-width: 1000px; margin: 0 auto; }
-        .header { text-align: center; margin-bottom: 25px; }
-        .header h2 { font-weight: 300; letter-spacing: 2px; color: #2f4f4f; }
+        /* 基礎重置與響應式設定 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
         
-        .control-panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-align: center; margin-bottom: 25px; border: 1px solid #e1e8e1; }
-        .btn-group { display: flex; justify-content: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif; 
+            padding: 12px; 
+            background-color: #f7f8f6; 
+            color: #2d3436;
+            font-size: 14px;
+            line-height: 1.4;
+            -webkit-text-size-adjust: 100%;
+            -webkit-font-smoothing: antialiased;
+        }
         
-        /* 日系和色按鈕 */
-        button { min-width: 160px; padding: 12px 18px; font-size: 15px; cursor: pointer; border: none; border-radius: 4px; color: white; font-weight: 500; transition: 0.3s; }
+        /* 容器與標題 */
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .header { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            padding: 10px 5px;
+        }
+        
+        .header h2 { 
+            font-weight: 500; 
+            color: #2f4f4f; 
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        
+        .header-subtitle {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        /* 控制面板 - 手機優化 */
+        .control-panel { 
+            background: white; 
+            padding: 16px; 
+            border-radius: 12px; 
+            box-shadow: 0 3px 12px rgba(0,0,0,0.05); 
+            text-align: center; 
+            margin-bottom: 20px; 
+            border: 1px solid #e1e8e1; 
+        }
+        
+        /* 按鈕組 - 手機上垂直排列 */
+        .btn-group { 
+            display: flex; 
+            flex-direction: column;
+            gap: 10px; 
+            margin-bottom: 15px;
+        }
+        
+        @media (min-width: 768px) {
+            .btn-group {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+        
+        /* 按鈕 - 觸控優化 */
+        button { 
+            width: 100%;
+            padding: 16px 12px; 
+            font-size: 14px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 8px; 
+            color: white; 
+            font-weight: 600; 
+            transition: all 0.2s;
+            touch-action: manipulation;
+            min-height: 52px;
+            letter-spacing: 0.5px;
+        }
+        
+        @media (min-width: 768px) {
+            button {
+                width: auto;
+                min-width: 140px;
+                padding: 14px 16px;
+            }
+        }
+        
+        button:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+        
         .btn-a { background: #555555; } /* 墨色 */
         .btn-b { background: #6a83a4; } /* 縹色 */
         .btn-c { background: #d05a6e; } /* 胭脂色 */
         .btn-d { background: #6b8e23; } /* 橄欖綠 */
-        .btn-e { background: #ff9800; } /* 橙色 - 新增的起漲預測 */
-        button:hover { opacity: 0.8; transform: translateY(-1px); }
-        button:disabled { background: #dcdcdc; cursor: not-allowed; }
+        .btn-e { background: #ff9800; } /* 橙色 */
         
-        #progress-container { display: none; width: 100%; height: 6px; background: #eee; border-radius: 10px; margin-top: 20px; overflow: hidden; }
-        #progress-bar { width: 0%; height: 100%; background: #6b8e23; transition: width 0.3s ease; }
-        
-        .stock-item { background: white; border-radius: 8px; margin-bottom: 20px; padding: 20px; border: 1px solid #eee; }
-        .stock-title { font-size: 18px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; color: #2f4f4f; }
-        .data-box { background: #fdfdfd; border: 1px solid #eee; border-radius: 6px; padding: 12px; margin: 15px 0 10px 0; display: flex; flex-wrap: wrap; gap: 15px; font-size: 13px; }
-        .sub-data-box { background: #fafafa; border: 1px solid #eee; border-radius: 4px; padding: 8px 12px; margin-bottom: 5px; display: flex; gap: 15px; font-size: 12px; font-weight: bold; }
-        .canvas-wrapper { border: 1px solid #eee; border-radius: 4px; overflow: hidden; margin-bottom: 8px; background: #fff; position: relative; }
-        canvas { display: block; width: 100%; cursor: crosshair; }
-        #status { margin-top:10px; font-size: 14px; color: #7f8c8d; }
-        
-        /* 新增樣式：漲跌箭頭和價格顯示 */
-        .up-arrow { color: #e53935; font-weight: bold; }
-        .down-arrow { color: #2e7d32; font-weight: bold; }
-        .stock-price { 
-            font-size: 16px; 
-            margin-left: 15px; 
-            font-weight: bold;
+        button:disabled { 
+            background: #dcdcdc !important; 
+            cursor: not-allowed;
+            transform: none !important;
+            opacity: 0.7;
         }
+        
+        /* 進度條 */
+        #progress-container { 
+            display: none; 
+            width: 100%; 
+            height: 6px; 
+            background: #eee; 
+            border-radius: 10px; 
+            margin-top: 20px; 
+            overflow: hidden; 
+            margin-bottom: 15px;
+        }
+        
+        #progress-bar { 
+            width: 0%; 
+            height: 100%; 
+            background: linear-gradient(90deg, #6b8e23, #8bc34a); 
+            transition: width 0.4s ease; 
+        }
+        
+        /* 狀態訊息 */
+        #status { 
+            margin-top: 12px; 
+            font-size: 13px; 
+            color: #7f8c8d; 
+            line-height: 1.5;
+            min-height: 40px;
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        
+        /* 股票項目 - 手機卡片設計 */
+        .stock-item { 
+            background: white; 
+            border-radius: 10px; 
+            margin-bottom: 15px; 
+            padding: 16px; 
+            border: 1px solid #eee;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: transform 0.2s;
+        }
+        
+        .stock-item:active {
+            transform: translateY(2px);
+        }
+        
+        /* 股票標題 - 觸控友好 */
+        .stock-title { 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            color: #2f4f4f; 
+            padding: 8px 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .stock-title:active {
+            opacity: 0.7;
+        }
+        
+        .stock-code { 
+            font-weight: 700; 
+            color: #2f4f4f; 
+            font-size: 16px;
+            margin-right: 8px;
+        }
+        
+        .stock-name { 
+            font-size: 13px; 
+            color: #666; 
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .stock-price-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .stock-price { 
+            font-size: 17px; 
+            font-weight: 700;
+            color: #2f4f4f;
+        }
+        
         .stock-change { 
             font-size: 14px; 
-            margin-left: 10px;
-            font-weight: bold;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(229, 57, 53, 0.1);
         }
         
-        /* 排序標籤 */
-        .sort-tabs {
-            display: flex;
-            justify-content: center;
-            margin: 10px 0 20px 0;
-            gap: 10px;
+        .stock-change.negative {
+            background: rgba(46, 125, 50, 0.1);
         }
+        
+        .up-arrow { 
+            color: #e53935; 
+            font-size: 12px;
+        }
+        
+        .down-arrow { 
+            color: #2e7d32; 
+            font-size: 12px;
+        }
+        
+        /* 額外資訊 */
+        .extra-info {
+            font-size: 11px;
+            color: #ff9800;
+            font-weight: 600;
+            margin-left: 8px;
+            padding: 3px 8px;
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 4px;
+        }
+        
+        /* 圖表區域 */
+        .chart-container {
+            display: none;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed #eee;
+        }
+        
+        .simulation-control {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .simulation-label {
+            display: block;
+            margin-bottom: 10px;
+            color: #495057;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .eval-slider {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #dee2e6;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        .eval-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #ff9800;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        
+        .eval-pct {
+            min-width: 60px;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            padding: 6px 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        
+        /* 數據盒子 */
+        .data-box { 
+            background: #fdfdfd; 
+            border: 1px solid #eee; 
+            border-radius: 8px; 
+            padding: 12px; 
+            margin: 15px 0; 
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px; 
+            font-size: 12px;
+        }
+        
+        @media (min-width: 480px) {
+            .data-box {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .data-box {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+        
+        .data-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 32px;
+        }
+        
+        .data-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #6b8e23;
+        }
+        
+        .data-item label {
+            flex: 1;
+            cursor: pointer;
+        }
+        
+        .val-span {
+            margin-left: 4px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        /* 圖表畫布 */
+        .canvas-wrapper { 
+            border: 1px solid #eee; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            margin-bottom: 12px; 
+            background: #fff; 
+        }
+        
+        canvas { 
+            display: block; 
+            width: 100% !important; 
+            height: auto !important;
+            cursor: pointer;
+            touch-action: pan-x;
+        }
+        
+        .main-canvas {
+            height: 280px !important;
+        }
+        
+        .sub-canvas {
+            height: 100px !important;
+        }
+        
+        @media (min-width: 768px) {
+            .main-canvas {
+                height: 350px !important;
+            }
+            
+            .sub-canvas {
+                height: 120px !important;
+            }
+        }
+        
+        /* OBV數據顯示 */
+        .obv-box { 
+            background: #fafafa; 
+            border: 1px solid #eee; 
+            border-radius: 6px; 
+            padding: 10px; 
+            margin-bottom: 10px; 
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px; 
+            font-size: 11px; 
+            font-weight: 600;
+        }
+        
+        .obv-item {
+            flex: 1;
+            min-width: 100px;
+        }
+        
+        /* 排序選項 */
+        .sort-tabs {
+            display: none;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 12px 0 16px 0;
+            gap: 8px;
+        }
+        
         .sort-tab {
-            padding: 8px 15px;
+            padding: 10px 16px;
             background: #f0f0f0;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 13px;
-            transition: all 0.3s;
+            font-size: 12px;
+            transition: all 0.2s;
+            user-select: none;
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+            border: 2px solid transparent;
+            touch-action: manipulation;
         }
+        
         .sort-tab.active {
             background: #ff9800;
             color: white;
-            font-weight: bold;
-        }
-        .sort-tab:hover {
-            background: #e0e0e0;
+            font-weight: 600;
+            border-color: #ff9800;
         }
         
-        /* 添加工具提示樣式 */
-        .tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
+        .sort-tab:active {
+            transform: scale(0.95);
+        }
+        
+        /* 手機提示 */
+        .mobile-hint {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
             font-size: 12px;
-            pointer-events: none;
-            z-index: 1000;
-            white-space: nowrap;
+            color: #7f8c8d;
+            background: #f9f9f9;
+            border-radius: 10px;
+            border: 1px solid #eee;
+            display: none;
+        }
+        
+        .hint-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+        }
+        
+        .hint-item {
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        /* 載入動畫 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(107, 142, 35, 0.2);
+            border-radius: 50%;
+            border-top-color: #6b8e23;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 結果數量顯示 */
+        .result-count {
+            font-weight: 700;
+            color: #d05a6e;
+            font-size: 15px;
+        }
+        
+        /* 空狀態 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .empty-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+        
+        /* 橫向模式優化 */
+        @media (orientation: landscape) {
+            .btn-group {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            
+            button {
+                flex: 1;
+                min-width: 120px;
+            }
+            
+            .main-canvas {
+                height: 220px !important;
+            }
+            
+            .sub-canvas {
+                height: 80px !important;
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="header"><h2>Gemini 技術分析選股 v.94</h2></div>
-    <div class="control-panel">
-        <div class="btn-group">
-            <button id="btnA" class="btn-a" onclick="runScan('A')">LRC 轉折 (短)</button>
-            <button id="btnB" class="btn-b" onclick="runScan('B')">LSMA 轉折 (中)</button>
-            <button id="btnC" class="btn-c" onclick="runScan('C')">今日多頭排列</button>
-            <button id="btnD" class="btn-d" onclick="runScan('D')">多頭第一天</button>
-            <button id="btnE" class="btn-e" onclick="runScan('E')">起漲預測 (明日0-3%)</button>
-        </div>
-        <div id="progress-container"><div id="progress-bar"></div></div>
-        <div id="status">系統就緒</div>
+    <div class="header">
+        <h2>Gemini 技術分析選股 v.94</h2>
+        <div class="header-subtitle">手機優化版 | 觸控友好設計</div>
     </div>
     
-    <!-- 排序選項（掃描完成後顯示） -->
-    <div id="sortOptions" class="sort-tabs" style="display: none;">
-        <div class="sort-tab active" onclick="sortResults('code')">股號排序</div>
-        <div class="sort-tab" onclick="sortResults('change')">漲跌幅排序</div>
-        <div class="sort-tab" onclick="sortResults('price')">股價排序</div>
+    <div class="control-panel">
+        <div class="btn-group">
+            <button id="btnA" class="btn-a" onclick="runScan('A')">LRC轉折</button>
+            <button id="btnB" class="btn-b" onclick="runScan('B')">LSMA轉折</button>
+            <button id="btnC" class="btn-c" onclick="runScan('C')">今日多頭</button>
+            <button id="btnD" class="btn-d" onclick="runScan('D')">多頭第一天</button>
+            <button id="btnE" class="btn-e" onclick="runScan('E')">起漲預測</button>
+        </div>
+        
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        
+        <div id="status">
+            點擊上方按鈕開始分析
+        </div>
+    </div>
+    
+    <!-- 排序選項 -->
+    <div id="sortOptions" class="sort-tabs">
+        <div class="sort-tab active" onclick="sortResults('code')">股號</div>
+        <div class="sort-tab" onclick="sortResults('change')">漲跌幅</div>
+        <div class="sort-tab" onclick="sortResults('price')">股價</div>
     </div>
     
     <div id="result"></div>
+    
+    <div class="mobile-hint" id="mobileHint">
+        <div class="hint-title">📱 使用提示</div>
+        <div class="hint-item">• 點擊股票名稱查看詳細圖表</div>
+        <div class="hint-item">• 在圖表上左右滑動查看歷史</div>
+        <div class="hint-item">• 拖動滑桿模擬明日走勢</div>
+    </div>
 </div>
 
 <script>
 /** 全域變數：儲存掃描結果 **/
 let currentScanResults = [];
-let currentSortMode = 'code'; // 預設按股號排序
+let currentSortMode = 'code';
 
 /** 並行掃描邏輯 **/
 async function runScan(mode) {
@@ -127,7 +589,8 @@ async function runScan(mode) {
           result = document.getElementById("result"), 
           pBar = document.getElementById("progress-bar"), 
           pCont = document.getElementById("progress-container"),
-          sortOptions = document.getElementById("sortOptions");
+          sortOptions = document.getElementById("sortOptions"),
+          mobileHint = document.getElementById("mobileHint");
     
     const btns = [
         document.getElementById("btnA"), 
@@ -137,18 +600,28 @@ async function runScan(mode) {
         document.getElementById("btnE")
     ];
 
+    // 清空並重置
     result.innerHTML = ""; 
     pCont.style.display = "block"; 
     pBar.style.width = "0%";
     sortOptions.style.display = "none";
-    btns.forEach(b => b.disabled = true);
+    mobileHint.style.display = "none";
+    
+    // 禁用按鈕
+    btns.forEach(b => {
+        b.disabled = true;
+        b.style.opacity = "0.7";
+    });
 
     const codes = Object.keys(STOCK_MAP), total = codes.length;
     let scanned = 0, matchCount = 0;
-    const chunkSize = 5;
+    const chunkSize = 3; // 手機上減少並行請求
     
     // 清空前次結果
     currentScanResults = [];
+    
+    // 顯示載入狀態
+    status.innerHTML = `<span class="loading"></span>準備開始掃描...`;
 
     for (let i = 0; i < codes.length; i += chunkSize) {
         const chunk = codes.slice(i, i + chunkSize);
@@ -159,16 +632,18 @@ async function runScan(mode) {
                 scanned++;
                 const pct = Math.round((scanned / total) * 100);
                 
-                // 顯示當前掃描模式
+                // 更新狀態
                 let modeName = "";
                 switch(mode) {
                     case 'A': modeName = "LRC轉折"; break;
                     case 'B': modeName = "LSMA轉折"; break;
-                    case 'C': modeName = "今日多頭排列"; break;
+                    case 'C': modeName = "多頭排列"; break;
                     case 'D': modeName = "多頭第一天"; break;
                     case 'E': modeName = "起漲預測"; break;
                 }
-                status.innerHTML = `模式${mode} ${modeName} 分析中... [ ${scanned} / ${total} ]<br>當前：${code} ${STOCK_MAP[code]}`;
+                
+                status.innerHTML = `<span class="loading"></span>${modeName}掃描中<br>
+                                    <small>${scanned}/${total} (${pct}%) | ${code} ${STOCK_MAP[code]}</small>`;
                 pBar.style.width = `${pct}%`;
 
                 if (!j.chart.result) return;
@@ -182,23 +657,16 @@ async function runScan(mode) {
                     volume: q.volume[idx] 
                 })).filter(x => x.close !== null && !isNaN(x.close));
                 
-                // 確保有足夠的數據
                 if (data.length < 30) return;
                 
                 const prices = data.map(d => d.close);
-                
-                // 檢查是否符合條件
                 let isMatch = false;
                 let minRequiredPercent = null;
 
                 if (mode === 'A' || mode === 'B' || mode === 'C' || mode === 'D') {
-                    // 使用 strategies.js 中的檢查方法
                     isMatch = Strategies.check(prices, mode);
                 } else if (mode === 'E') {
-                    // 起漲預測：使用優化的檢查方法
                     isMatch = checkRisingStartPrediction(prices);
-                    
-                    // 如果符合，嘗試計算需要的最小漲幅
                     if (isMatch) {
                         minRequiredPercent = calculateMinRiseForBullish(prices);
                     }
@@ -206,7 +674,6 @@ async function runScan(mode) {
 
                 if (isMatch) {
                     matchCount++;
-                    // 計算收盤價和漲跌幅
                     const lastData = data[data.length - 1];
                     const prevData = data[data.length - 2];
                     let changePercent = 0;
@@ -215,7 +682,6 @@ async function runScan(mode) {
                         changePercent = ((lastData.close - prevData.close) / prevData.close * 100);
                     }
                     
-                    // 儲存匹配的股票資料到結果陣列
                     currentScanResults.push({
                         code: code,
                         name: STOCK_MAP[code],
@@ -223,12 +689,11 @@ async function runScan(mode) {
                         closePrice: lastData.close,
                         changePercent: changePercent,
                         minRequiredPercent: minRequiredPercent,
-                        // 解析股號數字部分用於排序
                         codeNumber: extractStockCodeNumber(code)
                     });
                     
-                    // 如果有符合條件的，立即顯示（按股號排序）
-                    if (matchCount <= 10) { // 先顯示前10檔
+                    // 立即顯示前5個結果
+                    if (matchCount <= 5) {
                         updateDisplayImmediately(mode);
                     }
                 }
@@ -236,16 +701,21 @@ async function runScan(mode) {
                 console.error(`處理股票 ${code} 時發生錯誤:`, e);
             }
         });
+        
         await Promise.all(promises);
-        await new Promise(res => setTimeout(res, 200)); // 避免請求過於頻繁
+        await new Promise(res => setTimeout(res, 300)); // 增加延遲避免過快請求
     }
 
-    btns.forEach(b => b.disabled = false);
+    // 啟用按鈕
+    btns.forEach(b => {
+        b.disabled = false;
+        b.style.opacity = "1";
+    });
     
-    // 掃描完成，顯示所有結果
+    // 顯示所有結果
     displayAllResults(mode);
     
-    // 顯示結果
+    // 更新狀態
     let modeName = "";
     switch(mode) {
         case 'A': modeName = "LRC轉折"; break;
@@ -255,41 +725,38 @@ async function runScan(mode) {
         case 'E': modeName = "起漲預測"; break;
     }
     
-    let statusHTML = `模式${mode} ${modeName} 分析完成！選出 <span style="color:#d05a6e; font-weight:bold;">${matchCount}</span> 檔標的。`;
+    let statusHTML = `${modeName}分析完成！<br>找到 <span class="result-count">${matchCount}</span> 檔標的`;
     
-    // 如果是起漲預測模式，顯示更多資訊
     if (mode === 'E' && matchCount > 0) {
-        statusHTML += `<br><span style="font-size:12px; color:#ff9800;">找到 ${matchCount} 檔潛在起漲股票</span>`;
+        statusHTML += `<br><small style="color:#ff9800;">${matchCount}檔潛在起漲股票</small>`;
     }
     
     status.innerHTML = statusHTML;
-    setTimeout(() => { pCont.style.display = "none"; }, 3000);
+    mobileHint.style.display = "block";
+    
+    setTimeout(() => { 
+        pCont.style.display = "none"; 
+    }, 2000);
 }
 
 /** 解析股號數字部分 **/
 function extractStockCodeNumber(code) {
-    // 移除所有非數字字元，只保留數字部分
     const matches = code.match(/\d+/g);
     if (matches && matches.length > 0) {
-        // 取第一個連續數字
         return parseInt(matches[0], 10);
     }
     return 0;
 }
 
-/** 立即更新顯示（掃描過程中） **/
+/** 立即更新顯示 **/
 function updateDisplayImmediately(mode) {
-    // 先按股號排序
     const sortedResults = [...currentScanResults].sort((a, b) => {
-        // 先按股號數字排序
         if (a.codeNumber !== b.codeNumber) {
             return a.codeNumber - b.codeNumber;
         }
-        // 如果數字相同，按完整股號字母順序排序
         return a.code.localeCompare(b.code);
     });
     
-    // 清空並重新顯示
     const resultDiv = document.getElementById("result");
     resultDiv.innerHTML = "";
     
@@ -297,16 +764,12 @@ function updateDisplayImmediately(mode) {
         addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, mode, stock.minRequiredPercent);
     });
     
-    // 顯示排序選項
     document.getElementById("sortOptions").style.display = "flex";
 }
 
-/** 顯示所有結果（掃描完成後） **/
+/** 顯示所有結果 **/
 function displayAllResults(mode) {
-    // 按當前排序模式排序
     sortResults(currentSortMode);
-    
-    // 顯示排序選項
     document.getElementById("sortOptions").style.display = "flex";
 }
 
@@ -314,67 +777,71 @@ function displayAllResults(mode) {
 function sortResults(sortMode) {
     currentSortMode = sortMode;
     
-    // 更新排序標籤樣式
+    // 更新排序標籤
     document.querySelectorAll('.sort-tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    document.querySelector(`.sort-tab[onclick="sortResults('${sortMode}')"]`).classList.add('active');
+    const activeTab = document.querySelector(`.sort-tab[onclick="sortResults('${sortMode}')"]`);
+    if (activeTab) activeTab.classList.add('active');
     
     let sortedResults;
     
     switch(sortMode) {
-        case 'code': // 按股號排序
+        case 'code':
             sortedResults = [...currentScanResults].sort((a, b) => {
-                // 先按股號數字排序
                 if (a.codeNumber !== b.codeNumber) {
                     return a.codeNumber - b.codeNumber;
                 }
-                // 如果數字相同，按完整股號字母順序排序
                 return a.code.localeCompare(b.code);
             });
             break;
-            
-        case 'change': // 按漲跌幅排序（高到低）
+        case 'change':
             sortedResults = [...currentScanResults].sort((a, b) => b.changePercent - a.changePercent);
             break;
-            
-        case 'price': // 按股價排序（高到低）
+        case 'price':
             sortedResults = [...currentScanResults].sort((a, b) => b.closePrice - a.closePrice);
             break;
-            
         default:
             sortedResults = currentScanResults;
     }
     
-    // 清空並重新顯示
     const resultDiv = document.getElementById("result");
     resultDiv.innerHTML = "";
     
-    // 獲取當前模式（從最後一個結果推斷）
-    const lastStock = currentScanResults[0];
+    // 獲取當前模式
     const mode = document.querySelector('.btn-e:disabled') ? 'E' : 
                  document.querySelector('.btn-d:disabled') ? 'D' :
                  document.querySelector('.btn-c:disabled') ? 'C' :
                  document.querySelector('.btn-b:disabled') ? 'B' : 'A';
+    
+    if (sortedResults.length === 0) {
+        resultDiv.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📊</div>
+                <div>未找到符合條件的股票</div>
+                <div style="margin-top: 10px; font-size: 12px;">請嘗試其他分析模式</div>
+            </div>
+        `;
+        return;
+    }
     
     sortedResults.forEach(stock => {
         addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, mode, stock.minRequiredPercent);
     });
 }
 
-/** 檢查起漲預測的函數 **/
+/** 檢查起漲預測 **/
 function checkRisingStartPrediction(prices) {
     try {
         if (!prices || prices.length < 30) return false;
         
-        // 計算當前指標
         const lrc9 = Indicators.getLSMA(prices, 9);
         const lsma25 = Indicators.getLSMA(prices, 25);
         const ma20 = Indicators.getSMA(prices, 20);
         
         const lastIdx = lrc9.length - 1;
         
-        // 1. 檢查目前是不是多頭排列（必須不是）
+        // 檢查目前狀態
         const curLRC9 = lrc9[lastIdx];
         const curLSMA25 = lsma25[lastIdx];
         const curMA20 = ma20[lastIdx];
@@ -385,55 +852,13 @@ function checkRisingStartPrediction(prices) {
         }
         
         const isCurrentlyBullish = curLRC9 > curLSMA25 && curLSMA25 > curMA20;
-        if (isCurrentlyBullish) {
-            // 如果現在已經是多頭排列，就不符合條件
-            return false;
-        }
+        if (isCurrentlyBullish) return false;
         
-        // 2. 取得今日收盤價
+        // 檢查明日
         const currentClose = prices[lastIdx];
         if (!currentClose || currentClose <= 0) return false;
         
-        // 3. 檢查明日上漲0-3%是否會形成多頭排列
-        for (let pct = 0; pct <= 3.0; pct += 0.1) {
-            // 計算明日價格
-            const tomorrowPrice = currentClose * (1 + pct / 100);
-            
-            // 只加入明日價格並計算指標的最後一個值
-            const testPrices = [...prices.slice(-30), tomorrowPrice]; // 只取最近30天+明日
-            
-            const testLRC9 = Indicators.getLSMA(testPrices, 9);
-            const testLSMA25 = Indicators.getLSMA(testPrices, 25);
-            const testMA20 = Indicators.getSMA(testPrices, 20);
-            
-            const tomorrowIdx = testLRC9.length - 1;
-            const l = testLRC9[tomorrowIdx];
-            const m = testLSMA25[tomorrowIdx];
-            const s = testMA20[tomorrowIdx];
-            
-            if (l !== null && m !== null && s !== null && l > m && m > s) {
-                // 找到一個漲幅會形成多頭排列
-                return true;
-            }
-        }
-        
-        return false;
-    } catch (error) {
-        console.error('起漲預測檢查錯誤:', error);
-        return false;
-    }
-}
-
-/** 計算需要的最小漲幅以形成多頭排列 **/
-function calculateMinRiseForBullish(prices) {
-    try {
-        if (!prices || prices.length < 30) return null;
-        
-        const currentClose = prices[prices.length - 1];
-        if (!currentClose || currentClose <= 0) return null;
-        
-        // 尋找最小漲幅
-        for (let pct = 0; pct <= 3.0; pct += 0.1) {
+        for (let pct = 0; pct <= 3.0; pct += 0.5) {
             const tomorrowPrice = currentClose * (1 + pct / 100);
             const testPrices = [...prices.slice(-30), tomorrowPrice];
             
@@ -447,7 +872,40 @@ function calculateMinRiseForBullish(prices) {
             const s = testMA20[tomorrowIdx];
             
             if (l !== null && m !== null && s !== null && l > m && m > s) {
-                return parseFloat(pct.toFixed(1)); // 返回最小需要漲幅
+                return true;
+            }
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('起漲預測檢查錯誤:', error);
+        return false;
+    }
+}
+
+/** 計算最小漲幅 **/
+function calculateMinRiseForBullish(prices) {
+    try {
+        if (!prices || prices.length < 30) return null;
+        
+        const currentClose = prices[prices.length - 1];
+        if (!currentClose || currentClose <= 0) return null;
+        
+        for (let pct = 0; pct <= 3.0; pct += 0.5) {
+            const tomorrowPrice = currentClose * (1 + pct / 100);
+            const testPrices = [...prices.slice(-30), tomorrowPrice];
+            
+            const testLRC9 = Indicators.getLSMA(testPrices, 9);
+            const testLSMA25 = Indicators.getLSMA(testPrices, 25);
+            const testMA20 = Indicators.getSMA(testPrices, 20);
+            
+            const tomorrowIdx = testLRC9.length - 1;
+            const l = testLRC9[tomorrowIdx];
+            const m = testLSMA25[tomorrowIdx];
+            const s = testMA20[tomorrowIdx];
+            
+            if (l !== null && m !== null && s !== null && l > m && m > s) {
+                return parseFloat(pct.toFixed(1));
             }
         }
         
@@ -463,87 +921,116 @@ function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', 
     const id = Math.random().toString(36).substr(2, 9);
     const div = document.createElement('div');
     div.className = "stock-item";
+    div.dataset.id = id;
     
-    // 計算漲跌箭頭
-    const arrow = changePercent >= 0 ? 
-        `<span class="up-arrow">▲</span>` : 
-        `<span class="down-arrow">▼</span>`;
+    // 計算顯示
+    const arrow = changePercent >= 0 ? '▲' : '▼';
+    const arrowClass = changePercent >= 0 ? 'up-arrow' : 'down-arrow';
+    const changeClass = changePercent >= 0 ? '' : 'negative';
     const changeColor = changePercent >= 0 ? '#e53935' : '#2e7d32';
     const sign = changePercent >= 0 ? '+' : '';
     
-    // 如果是起漲預測模式，添加額外資訊
+    // 額外資訊
     let extraInfo = '';
-    if (mode === 'E') {
-        const requiredPercent = minRequiredPercent !== null ? 
-            `<span style="font-size:12px; color:#ff9800; margin-left:10px; font-weight:bold;">
-                (需漲${minRequiredPercent}%轉多頭)
-            </span>` : 
-            `<span style="font-size:12px; color:#ff9800; margin-left:10px; font-weight:bold;">
-                (起漲預測)
-            </span>`;
-        extraInfo = requiredPercent;
+    if (mode === 'E' && minRequiredPercent !== null) {
+        extraInfo = `<span class="extra-info">需漲${minRequiredPercent}%</span>`;
     }
     
     div.innerHTML = `
         <div class="stock-title" onclick="toggleChart('${id}', this)">
             <div>
-                <span style="font-weight:bold; color:#2f4f4f;">${code}</span> 
-                <span style="font-size:14px; color:#666;">${STOCK_MAP[code]}</span>
-                <span class="stock-price">${closePrice.toFixed(2)}</span>
-                <span class="stock-change" style="color:${changeColor};">
-                    ${arrow} ${sign}${changePercent.toFixed(2)}%
-                </span>
-                ${extraInfo}
+                <div>
+                    <span class="stock-code">${code}</span>
+                    ${extraInfo}
+                </div>
+                <span class="stock-name">${STOCK_MAP[code]}</span>
+                <div class="stock-price-info">
+                    <span class="stock-price">${closePrice.toFixed(2)}</span>
+                    <span class="stock-change ${changeClass}" style="color:${changeColor};">
+                        <span class="${arrowClass}">${arrow}</span>
+                        ${sign}${changePercent.toFixed(2)}%
+                    </span>
+                </div>
             </div>
-            <span>▼</span>
+            <span style="font-size: 12px; color: #999;">▼</span>
         </div>
-        <div id="chart-${id}" style="display:none; margin-top:15px; border-top:1px dashed #eee;">
+        <div id="chart-${id}" class="chart-container">
+            <div class="simulation-control">
+                <div class="simulation-label">模擬明日走勢：</div>
+                <div class="slider-container">
+                    <input type="range" class="eval-slider" min="-10" max="10" step="0.5" value="0" 
+                           oninput="updateUI('${id}')"
+                           ontouchstart="this.style.opacity='0.8'"
+                           ontouchend="this.style.opacity='1'">
+                    <span class="eval-pct">0%</span>
+                </div>
+            </div>
+            
             <div class="data-box">
-                <div class="data-item"><input type="checkbox" checked id="chk-lrc9-${id}" onchange="updateUI('${id}')"> LRC9: <span class="val-lrc9 val-span">-</span></div>
-                <div class="data-item"><input type="checkbox" checked id="chk-lsma25-${id}" onchange="updateUI('${id}')"> LSMA25: <span class="val-lsma25 val-span">-</span></div>
-                <div class="data-item"><input type="checkbox" checked id="chk-bbmid-${id}" onchange="updateUI('${id}')"> 布林中: <span class="val-bbmid val-span">-</span></div>
-                <div class="data-item"><input type="checkbox" checked id="chk-bbup-${id}" onchange="updateUI('${id}')"> 上限: <span class="val-bbup val-span">-</span></div>
-                <div class="data-item"><input type="checkbox" checked id="chk-bbdn-${id}" onchange="updateUI('${id}')"> 下限: <span class="val-bbdn val-span">-</span></div>
+                <div class="data-item">
+                    <input type="checkbox" checked id="chk-lrc9-${id}" onchange="updateUI('${id}')">
+                    <label for="chk-lrc9-${id}">LRC9:</label>
+                    <span class="val-lrc9 val-span">-</span>
+                </div>
+                <div class="data-item">
+                    <input type="checkbox" checked id="chk-lsma25-${id}" onchange="updateUI('${id}')">
+                    <label for="chk-lsma25-${id}">LSMA25:</label>
+                    <span class="val-lsma25 val-span">-</span>
+                </div>
+                <div class="data-item">
+                    <input type="checkbox" checked id="chk-bbmid-${id}" onchange="updateUI('${id}')">
+                    <label for="chk-bbmid-${id}">布林中:</label>
+                    <span class="val-bbmid val-span">-</span>
+                </div>
+                <div class="data-item">
+                    <input type="checkbox" checked id="chk-bbup-${id}" onchange="updateUI('${id}')">
+                    <label for="chk-bbup-${id}">上限:</label>
+                    <span class="val-bbup val-span">-</span>
+                </div>
+                <div class="data-item">
+                    <input type="checkbox" checked id="chk-bbdn-${id}" onchange="updateUI('${id}')">
+                    <label for="chk-bbdn-${id}">下限:</label>
+                    <span class="val-bbdn val-span">-</span>
+                </div>
             </div>
-            <div style="margin:10px 0; font-size: 13px;">
-                模擬明日走勢: 
-                <input type="range" class="eval-slider" min="-10" max="10" step="0.5" value="0" oninput="updateUI('${id}')"> 
-                <span class="eval-pct">0%</span>
-            </div>
+            
             <div class="canvas-wrapper">
-                <canvas class="main-canvas" style="height:420px;"></canvas>
+                <canvas id="main-canvas-${id}" class="main-canvas"></canvas>
             </div>
-            <div class="sub-data-box">
-                <span style="color:#b38f00;">OBV: <span class="val-obv">-</span></span>
-                <span style="color:#6a83a4;">OBV(MA30): <span class="val-obv30">-</span></span>
-                <span style="color:#d05a6e;">OBV(MA60): <span class="val-obv60">-</span></span>
+            
+            <div class="obv-box">
+                <div class="obv-item" style="color:#b38f00;">OBV: <span class="val-obv">-</span></div>
+                <div class="obv-item" style="color:#6a83a4;">OBV(30): <span class="val-obv30">-</span></div>
+                <div class="obv-item" style="color:#d05a6e;">OBV(60): <span class="val-obv60">-</span></div>
             </div>
+            
             <div class="canvas-wrapper">
-                <canvas class="sub-canvas" style="height:120px;"></canvas>
+                <canvas id="sub-canvas-${id}" class="sub-canvas"></canvas>
             </div>
         </div>`;
     
-    // 儲存股票資料
+    // 儲存資料
     div.stockData = data;
     document.getElementById("result").appendChild(div);
 }
 
-/** 展開圖表並初始化繪圖引擎 **/
+/** 展開圖表 **/
 function toggleChart(id, el) {
     const c = document.getElementById('chart-'+id);
-    const item = el.parentElement;
+    const item = el.closest('.stock-item');
     const isVisible = c.style.display === 'block';
     
-    // 切換顯示狀態
+    // 切換顯示
     c.style.display = isVisible ? 'none' : 'block';
     
-    // 切換箭頭方向
+    // 切換箭頭
     const arrow = el.querySelector('span:last-child');
     if (arrow) {
         arrow.textContent = isVisible ? '▼' : '▲';
+        arrow.style.transform = isVisible ? 'none' : 'rotate(180deg)';
     }
     
-    // 初始化圖表引擎（如果尚未初始化）
+    // 初始化圖表
     if (!isVisible && !item.mainE) {
         try {
             const mainCanvas = c.querySelector('.main-canvas');
@@ -557,26 +1044,24 @@ function toggleChart(id, el) {
                 item.subE = new SubEngine(subCanvas, item.stockData);
             }
             
-            // 設定滑鼠移動事件回調
+            // 設定事件
             if (item.mainE) item.mainE.onMouseMove = () => updateUI(id);
             if (item.subE) item.subE.onMouseMove = () => updateUI(id);
             
             // 初始渲染
             updateUI(id);
         } catch (error) {
-            console.error(`初始化圖表引擎錯誤 (${id}):`, error);
-            // 顯示錯誤訊息
+            console.error(`初始化圖表錯誤 (${id}):`, error);
             c.innerHTML += `<div style="color: #d05a6e; padding: 10px; background: #ffe6e6; border-radius: 4px; margin-top: 10px;">
-                圖表初始化失敗: ${error.message}
+                圖表初始化失敗
             </div>`;
         }
     } else if (!isVisible && item.mainE) {
-        // 如果已經初始化，重新渲染
         updateUI(id);
     }
 }
 
-/** 更新介面數值與圖表渲染 **/
+/** 更新介面 **/
 function updateUI(id) {
     const c = document.getElementById('chart-'+id);
     if (!c) return;
@@ -585,18 +1070,18 @@ function updateUI(id) {
     if (!item || !item.mainE) return;
     
     try {
-        // 取得滑桿數值
+        // 滑桿
         const slider = c.querySelector('.eval-slider');
         const pct = slider ? parseFloat(slider.value) || 0 : 0;
         
-        // 更新百分比顯示
+        // 百分比顯示
         const pctSpan = c.querySelector('.eval-pct');
         if (pctSpan) {
             pctSpan.textContent = (pct > 0 ? "+" : "") + pct + '%';
             pctSpan.style.color = pct > 0 ? '#e53935' : (pct < 0 ? '#2e7d32' : '#333');
         }
         
-        // 取得勾選狀態
+        // 勾選狀態
         const chks = { 
             lrc9: c.querySelector(`#chk-lrc9-${id}`)?.checked || true, 
             lsma25: c.querySelector(`#chk-lsma25-${id}`)?.checked || true, 
@@ -605,17 +1090,16 @@ function updateUI(id) {
             bbdn: c.querySelector(`#chk-bbdn-${id}`)?.checked || true 
         };
         
-        // 渲染主圖表
+        // 渲染
         const mainValues = item.mainE.render(pct, chks);
         
-        // 渲染副圖表
         let subValues = { obv: 0, ma30: 0, ma60: 0 };
         if (item.subE) {
             const mx = Math.max(item.mainE.getMouseX(), item.subE.getMouseX());
             subValues = item.subE.render(pct, mx);
         }
         
-        // 更新主圖表數值顯示
+        // 更新顯示
         if (mainValues) {
             ['lrc9', 'lsma25', 'bbup', 'bbmid', 'bbdn'].forEach(k => { 
                 const span = c.querySelector(`.val-${k}`); 
@@ -625,7 +1109,7 @@ function updateUI(id) {
             });
         }
         
-        // 更新副圖表數值顯示
+        // 更新OBV
         if (subValues) {
             const obvSpan = c.querySelector('.val-obv');
             const ma30Span = c.querySelector('.val-obv30');
@@ -640,29 +1124,31 @@ function updateUI(id) {
     }
 }
 
-/** 頁面載入完成後的初始化 **/
+/** 頁面初始化 **/
 window.addEventListener('DOMContentLoaded', () => {
-    // 檢查必要的全域變數
+    // 檢查裝置類型
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        document.getElementById('mobileHint').style.display = 'block';
+    }
+    
+    // 檢查模組
     if (typeof STOCK_MAP === 'undefined') {
-        console.error('stockList.js 未正確載入');
         document.getElementById('status').innerHTML = 
             '<span style="color:#d05a6e;">錯誤：股票資料庫未載入</span>';
     }
     
     if (typeof Indicators === 'undefined') {
-        console.error('indicators.js 未正確載入');
         document.getElementById('status').innerHTML = 
             '<span style="color:#d05a6e;">錯誤：技術指標模組未載入</span>';
     }
     
     if (typeof MainEngine === 'undefined') {
-        console.error('mainEngine.js 未正確載入');
         document.getElementById('status').innerHTML = 
             '<span style="color:#d05a6e;">錯誤：主圖表引擎未載入</span>';
     }
     
     if (typeof SubEngine === 'undefined') {
-        console.error('subEngine.js 未正確載入');
         document.getElementById('status').innerHTML = 
             '<span style="color:#d05a6e;">錯誤：副圖表引擎未載入</span>';
     }
@@ -671,6 +1157,16 @@ window.addEventListener('DOMContentLoaded', () => {
         console.warn('strategies.js 未載入，將使用內建設定');
     }
 });
+
+// 防止手機雙擊縮放
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(event) {
+    const now = (new Date()).getTime();
+    if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+    }
+    lastTouchEnd = now;
+}, false);
 </script>
 </body>
 </html>
