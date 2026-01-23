@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Gemini 技術分析選股 v.94</title>
+    <script src="stockList.js"></script>
+    <script src="indicators.js"></script>
+    <script src="mainEngine.js"></script>
+    <script src="subEngine.js"></script>
+    <script src="strategies.js"></script>
+    <style>
+        /* 日系風格配色與版面 */
+        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; padding: 20px; background-color: #f7f8f6; color: #2d3436; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 25px; }
+        .header h2 { font-weight: 300; letter-spacing: 2px; color: #2f4f4f; }
+        
+        .control-panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-align: center; margin-bottom: 25px; border: 1px solid #e1e8e1; }
+        .btn-group { display: flex; justify-content: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+        
+        /* 日系和色按鈕 */
+        button { min-width: 160px; padding: 12px 18px; font-size: 15px; cursor: pointer; border: none; border-radius: 4px; color: white; font-weight: 500; transition: 0.3s; }
+        .btn-a { background: #555555; } /* 墨色 */
+        .btn-b { background: #6a83a4; } /* 縹色 */
+        .btn-c { background: #d05a6e; } /* 胭脂色 */
+        .btn-d { background: #6b8e23; } /* 橄欖綠 */
+        .btn-e { background: #ff9800; } /* 橙色 - 新增的起漲預測 */
+        button:hover { opacity: 0.8; transform: translateY(-1px); }
+        button:disabled { background: #dcdcdc; cursor: not-allowed; }
+        
+        #progress-container { display: none; width: 100%; height: 6px; background: #eee; border-radius: 10px; margin-top: 20px; overflow: hidden; }
+        #progress-bar { width: 0%; height: 100%; background: #6b8e23; transition: width 0.3s ease; }
+        
+        .stock-item { background: white; border-radius: 8px; margin-bottom: 20px; padding: 20px; border: 1px solid #eee; }
+        .stock-title { font-size: 18px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; color: #2f4f4f; }
+        .data-box { background: #fdfdfd; border: 1px solid #eee; border-radius: 6px; padding: 12px; margin: 15px 0 10px 0; display: flex; flex-wrap: wrap; gap: 15px; font-size: 13px; }
+        .sub-data-box { background: #fafafa; border: 1px solid #eee; border-radius: 4px; padding: 8px 12px; margin-bottom: 5px; display: flex; gap: 15px; font-size: 12px; font-weight: bold; }
+        .canvas-wrapper { border: 1px solid #eee; border-radius: 4px; overflow: hidden; margin-bottom: 8px; background: #fff; position: relative; }
+        canvas { display: block; width: 100%; cursor: crosshair; }
+        #status { margin-top:10px; font-size: 14px; color: #7f8c8d; }
+        
+        /* 新增樣式：漲跌箭頭和價格顯示 */
+        .up-arrow { color: #e53935; font-weight: bold; }
+        .down-arrow { color: #2e7d32; font-weight: bold; }
+        .stock-price { 
+            font-size: 16px; 
+            margin-left: 15px; 
+            font-weight: bold;
+        }
+        .stock-change { 
+            font-size: 14px; 
+            margin-left: 10px;
+            font-weight: bold;
+        }
+        
+        /* 排序標籤 */
+        .sort-tabs {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0 20px 0;
+            gap: 10px;
+        }
+        .sort-tab {
+            padding: 8px 15px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        .sort-tab.active {
+            background: #ff9800;
+            color: white;
+            font-weight: bold;
+        }
+        .sort-tab:hover {
+            background: #e0e0e0;
+        }
+        
+        /* 添加工具提示樣式 */
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header"><h2>Gemini 技術分析選股 v.94</h2></div>
+    <div class="control-panel">
+        <div class="btn-group">
+            <button id="btnA" class="btn-a" onclick="runScan('A')">LRC 轉折 (短)</button>
+            <button id="btnB" class="btn-b" onclick="runScan('B')">LSMA 轉折 (中)</button>
+            <button id="btnC" class="btn-c" onclick="runScan('C')">今日多頭排列</button>
+            <button id="btnD" class="btn-d" onclick="runScan('D')">多頭第一天</button>
+            <button id="btnE" class="btn-e" onclick="runScan('E')">起漲預測 (明日0-3%)</button>
+        </div>
+        <div id="progress-container"><div id="progress-bar"></div></div>
+        <div id="status">系統就緒</div>
+    </div>
+    
+    <!-- 排序選項（掃描完成後顯示） -->
+    <div id="sortOptions" class="sort-tabs" style="display: none;">
+        <div class="sort-tab active" onclick="sortResults('code')">股號排序</div>
+        <div class="sort-tab" onclick="sortResults('change')">漲跌幅排序</div>
+        <div class="sort-tab" onclick="sortResults('price')">股價排序</div>
+    </div>
+    
+    <div id="result"></div>
+</div>
+
+<script>
+/** 全域變數：儲存掃描結果 **/
+let currentScanResults = [];
+let currentSortMode = 'code'; // 預設按股號排序
+
+/** 並行掃描邏輯 **/
+async function runScan(mode) {
+    const status = document.getElementById("status"), 
+          result = document.getElementById("result"), 
+          pBar = document.getElementById("progress-bar"), 
+          pCont = document.getElementById("progress-container"),
+          sortOptions = document.getElementById("sortOptions");
+    
+    const btns = [
+        document.getElementById("btnA"), 
+        document.getElementById("btnB"), 
+        document.getElementById("btnC"), 
+        document.getElementById("btnD"),
+        document.getElementById("btnE")
+    ];
+
+    result.innerHTML = ""; 
+    pCont.style.display = "block"; 
+    pBar.style.width = "0%";
+    sortOptions.style.display = "none";
+    btns.forEach(b => b.disabled = true);
+
+    const codes = Object.keys(STOCK_MAP), total = codes.length;
+    let scanned = 0, matchCount = 0;
+    const chunkSize = 5;
+    
+    // 清空前次結果
+    currentScanResults = [];
+
+    for (let i = 0; i < codes.length; i += chunkSize) {
+        const chunk = codes.slice(i, i + chunkSize);
+        const promises = chunk.map(async (code) => {
+            try {
+                const r = await fetch("https://corsproxy.io/?" + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${code}?range=1y&interval=1d`));
+                const j = await r.json();
+                scanned++;
+                const pct = Math.round((scanned / total) * 100);
+                
+                // 顯示當前掃描模式
+                let modeName = "";
+                switch(mode) {
+                    case 'A': modeName = "LRC轉折"; break;
+                    case 'B': modeName = "LSMA轉折"; break;
+                    case 'C': modeName = "今日多頭排列"; break;
+                    case 'D': modeName = "多頭第一天"; break;
+                    case 'E': modeName = "起漲預測"; break;
+                }
+                status.innerHTML = `模式${mode} ${modeName} 分析中... [ ${scanned} / ${total} ]<br>當前：${code} ${STOCK_MAP[code]}`;
+                pBar.style.width = `${pct}%`;
+
+                if (!j.chart.result) return;
+                const q = j.chart.result[0].indicators.quote[0];
+                const data = j.chart.result[0].timestamp.map((t, idx) => ({ 
+                    time: t, 
+                    open: q.open[idx], 
+                    high: q.high[idx], 
+                    low: q.low[idx], 
+                    close: q.close[idx], 
+                    volume: q.volume[idx] 
+                })).filter(x => x.close !== null && !isNaN(x.close));
+                
+                // 確保有足夠的數據
+                if (data.length < 30) return;
+                
+                const prices = data.map(d => d.close);
+                
+                // 檢查是否符合條件
+                let isMatch = false;
+                let minRequiredPercent = null;
+
+                if (mode === 'A' || mode === 'B' || mode === 'C' || mode === 'D') {
+                    // 使用 strategies.js 中的檢查方法
+                    isMatch = Strategies.check(prices, mode);
+                } else if (mode === 'E') {
+                    // 起漲預測：使用優化的檢查方法
+                    isMatch = checkRisingStartPrediction(prices);
+                    
+                    // 如果符合，嘗試計算需要的最小漲幅
+                    if (isMatch) {
+                        minRequiredPercent = calculateMinRiseForBullish(prices);
+                    }
+                }
+
+                if (isMatch) {
+                    matchCount++;
+                    // 計算收盤價和漲跌幅
+                    const lastData = data[data.length - 1];
+                    const prevData = data[data.length - 2];
+                    let changePercent = 0;
+                    
+                    if (prevData && prevData.close !== 0 && !isNaN(prevData.close) && !isNaN(lastData.close)) {
+                        changePercent = ((lastData.close - prevData.close) / prevData.close * 100);
+                    }
+                    
+                    // 儲存匹配的股票資料到結果陣列
+                    currentScanResults.push({
+                        code: code,
+                        name: STOCK_MAP[code],
+                        data: data,
+                        closePrice: lastData.close,
+                        changePercent: changePercent,
+                        minRequiredPercent: minRequiredPercent,
+                        // 解析股號數字部分用於排序
+                        codeNumber: extractStockCodeNumber(code)
+                    });
+                    
+                    // 如果有符合條件的，立即顯示（按股號排序）
+                    if (matchCount <= 10) { // 先顯示前10檔
+                        updateDisplayImmediately(mode);
+                    }
+                }
+            } catch(e) {
+                console.error(`處理股票 ${code} 時發生錯誤:`, e);
+            }
+        });
+        await Promise.all(promises);
+        await new Promise(res => setTimeout(res, 200)); // 避免請求過於頻繁
+    }
+
+    btns.forEach(b => b.disabled = false);
+    
+    // 掃描完成，顯示所有結果
+    displayAllResults(mode);
+    
+    // 顯示結果
+    let modeName = "";
+    switch(mode) {
+        case 'A': modeName = "LRC轉折"; break;
+        case 'B': modeName = "LSMA轉折"; break;
+        case 'C': modeName = "今日多頭排列"; break;
+        case 'D': modeName = "多頭第一天"; break;
+        case 'E': modeName = "起漲預測"; break;
+    }
+    
+    let statusHTML = `模式${mode} ${modeName} 分析完成！選出 <span style="color:#d05a6e; font-weight:bold;">${matchCount}</span> 檔標的。`;
+    
+    // 如果是起漲預測模式，顯示更多資訊
+    if (mode === 'E' && matchCount > 0) {
+        statusHTML += `<br><span style="font-size:12px; color:#ff9800;">找到 ${matchCount} 檔潛在起漲股票</span>`;
+    }
+    
+    status.innerHTML = statusHTML;
+    setTimeout(() => { pCont.style.display = "none"; }, 3000);
+}
+
+/** 解析股號數字部分 **/
+function extractStockCodeNumber(code) {
+    // 移除所有非數字字元，只保留數字部分
+    const matches = code.match(/\d+/g);
+    if (matches && matches.length > 0) {
+        // 取第一個連續數字
+        return parseInt(matches[0], 10);
+    }
+    return 0;
+}
+
+/** 立即更新顯示（掃描過程中） **/
+function updateDisplayImmediately(mode) {
+    // 先按股號排序
+    const sortedResults = [...currentScanResults].sort((a, b) => {
+        // 先按股號數字排序
+        if (a.codeNumber !== b.codeNumber) {
+            return a.codeNumber - b.codeNumber;
+        }
+        // 如果數字相同，按完整股號字母順序排序
+        return a.code.localeCompare(b.code);
+    });
+    
+    // 清空並重新顯示
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerHTML = "";
+    
+    sortedResults.forEach(stock => {
+        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, mode, stock.minRequiredPercent);
+    });
+    
+    // 顯示排序選項
+    document.getElementById("sortOptions").style.display = "flex";
+}
+
+/** 顯示所有結果（掃描完成後） **/
+function displayAllResults(mode) {
+    // 按當前排序模式排序
+    sortResults(currentSortMode);
+    
+    // 顯示排序選項
+    document.getElementById("sortOptions").style.display = "flex";
+}
+
+/** 排序結果 **/
+function sortResults(sortMode) {
+    currentSortMode = sortMode;
+    
+    // 更新排序標籤樣式
+    document.querySelectorAll('.sort-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelector(`.sort-tab[onclick="sortResults('${sortMode}')"]`).classList.add('active');
+    
+    let sortedResults;
+    
+    switch(sortMode) {
+        case 'code': // 按股號排序
+            sortedResults = [...currentScanResults].sort((a, b) => {
+                // 先按股號數字排序
+                if (a.codeNumber !== b.codeNumber) {
+                    return a.codeNumber - b.codeNumber;
+                }
+                // 如果數字相同，按完整股號字母順序排序
+                return a.code.localeCompare(b.code);
+            });
+            break;
+            
+        case 'change': // 按漲跌幅排序（高到低）
+            sortedResults = [...currentScanResults].sort((a, b) => b.changePercent - a.changePercent);
+            break;
+            
+        case 'price': // 按股價排序（高到低）
+            sortedResults = [...currentScanResults].sort((a, b) => b.closePrice - a.closePrice);
+            break;
+            
+        default:
+            sortedResults = currentScanResults;
+    }
+    
+    // 清空並重新顯示
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerHTML = "";
+    
+    // 獲取當前模式（從最後一個結果推斷）
+    const lastStock = currentScanResults[0];
+    const mode = document.querySelector('.btn-e:disabled') ? 'E' : 
+                 document.querySelector('.btn-d:disabled') ? 'D' :
+                 document.querySelector('.btn-c:disabled') ? 'C' :
+                 document.querySelector('.btn-b:disabled') ? 'B' : 'A';
+    
+    sortedResults.forEach(stock => {
+        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, mode, stock.minRequiredPercent);
+    });
+}
+
+/** 檢查起漲預測的函數 **/
+function checkRisingStartPrediction(prices) {
+    try {
+        if (!prices || prices.length < 30) return false;
+        
+        // 計算當前指標
+        const lrc9 = Indicators.getLSMA(prices, 9);
+        const lsma25 = Indicators.getLSMA(prices, 25);
+        const ma20 = Indicators.getSMA(prices, 20);
+        
+        const lastIdx = lrc9.length - 1;
+        
+        // 1. 檢查目前是不是多頭排列（必須不是）
+        const curLRC9 = lrc9[lastIdx];
+        const curLSMA25 = lsma25[lastIdx];
+        const curMA20 = ma20[lastIdx];
+        
+        if (curLRC9 === null || curLSMA25 === null || curMA20 === null ||
+            isNaN(curLRC9) || isNaN(curLSMA25) || isNaN(curMA20)) {
+            return false;
+        }
+        
+        const isCurrentlyBullish = curLRC9 > curLSMA25 && curLSMA25 > curMA20;
+        if (isCurrentlyBullish) {
+            // 如果現在已經是多頭排列，就不符合條件
+            return false;
+        }
+        
+        // 2. 取得今日收盤價
+        const currentClose = prices[lastIdx];
+        if (!currentClose || currentClose <= 0) return false;
+        
+        // 3. 檢查明日上漲0-3%是否會形成多頭排列
+        for (let pct = 0; pct <= 3.0; pct += 0.1) {
+            // 計算明日價格
+            const tomorrowPrice = currentClose * (1 + pct / 100);
+            
+            // 只加入明日價格並計算指標的最後一個值
+            const testPrices = [...prices.slice(-30), tomorrowPrice]; // 只取最近30天+明日
+            
+            const testLRC9 = Indicators.getLSMA(testPrices, 9);
+            const testLSMA25 = Indicators.getLSMA(testPrices, 25);
+            const testMA20 = Indicators.getSMA(testPrices, 20);
+            
+            const tomorrowIdx = testLRC9.length - 1;
+            const l = testLRC9[tomorrowIdx];
+            const m = testLSMA25[tomorrowIdx];
+            const s = testMA20[tomorrowIdx];
+            
+            if (l !== null && m !== null && s !== null && l > m && m > s) {
+                // 找到一個漲幅會形成多頭排列
+                return true;
+            }
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('起漲預測檢查錯誤:', error);
+        return false;
+    }
+}
+
+/** 計算需要的最小漲幅以形成多頭排列 **/
+function calculateMinRiseForBullish(prices) {
+    try {
+        if (!prices || prices.length < 30) return null;
+        
+        const currentClose = prices[prices.length - 1];
+        if (!currentClose || currentClose <= 0) return null;
+        
+        // 尋找最小漲幅
+        for (let pct = 0; pct <= 3.0; pct += 0.1) {
+            const tomorrowPrice = currentClose * (1 + pct / 100);
+            const testPrices = [...prices.slice(-30), tomorrowPrice];
+            
+            const testLRC9 = Indicators.getLSMA(testPrices, 9);
+            const testLSMA25 = Indicators.getLSMA(testPrices, 25);
+            const testMA20 = Indicators.getSMA(testPrices, 20);
+            
+            const tomorrowIdx = testLRC9.length - 1;
+            const l = testLRC9[tomorrowIdx];
+            const m = testLSMA25[tomorrowIdx];
+            const s = testMA20[tomorrowIdx];
+            
+            if (l !== null && m !== null && s !== null && l > m && m > s) {
+                return parseFloat(pct.toFixed(1)); // 返回最小需要漲幅
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('計算最小漲幅錯誤:', error);
+        return null;
+    }
+}
+
+/** 產生股票顯示卡片 **/
+function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', minRequiredPercent = null) {
+    const id = Math.random().toString(36).substr(2, 9);
+    const div = document.createElement('div');
+    div.className = "stock-item";
+    
+    // 計算漲跌箭頭
+    const arrow = changePercent >= 0 ? 
+        `<span class="up-arrow">▲</span>` : 
+        `<span class="down-arrow">▼</span>`;
+    const changeColor = changePercent >= 0 ? '#e53935' : '#2e7d32';
+    const sign = changePercent >= 0 ? '+' : '';
+    
+    // 如果是起漲預測模式，添加額外資訊
+    let extraInfo = '';
+    if (mode === 'E') {
+        const requiredPercent = minRequiredPercent !== null ? 
+            `<span style="font-size:12px; color:#ff9800; margin-left:10px; font-weight:bold;">
+                (需漲${minRequiredPercent}%轉多頭)
+            </span>` : 
+            `<span style="font-size:12px; color:#ff9800; margin-left:10px; font-weight:bold;">
+                (起漲預測)
+            </span>`;
+        extraInfo = requiredPercent;
+    }
+    
+    div.innerHTML = `
+        <div class="stock-title" onclick="toggleChart('${id}', this)">
+            <div>
+                <span style="font-weight:bold; color:#2f4f4f;">${code}</span> 
+                <span style="font-size:14px; color:#666;">${STOCK_MAP[code]}</span>
+                <span class="stock-price">${closePrice.toFixed(2)}</span>
+                <span class="stock-change" style="color:${changeColor};">
+                    ${arrow} ${sign}${changePercent.toFixed(2)}%
+                </span>
+                ${extraInfo}
+            </div>
+            <span>▼</span>
+        </div>
+        <div id="chart-${id}" style="display:none; margin-top:15px; border-top:1px dashed #eee;">
+            <div class="data-box">
+                <div class="data-item"><input type="checkbox" checked id="chk-lrc9-${id}" onchange="updateUI('${id}')"> LRC9: <span class="val-lrc9 val-span">-</span></div>
+                <div class="data-item"><input type="checkbox" checked id="chk-lsma25-${id}" onchange="updateUI('${id}')"> LSMA25: <span class="val-lsma25 val-span">-</span></div>
+                <div class="data-item"><input type="checkbox" checked id="chk-bbmid-${id}" onchange="updateUI('${id}')"> 布林中: <span class="val-bbmid val-span">-</span></div>
+                <div class="data-item"><input type="checkbox" checked id="chk-bbup-${id}" onchange="updateUI('${id}')"> 上限: <span class="val-bbup val-span">-</span></div>
+                <div class="data-item"><input type="checkbox" checked id="chk-bbdn-${id}" onchange="updateUI('${id}')"> 下限: <span class="val-bbdn val-span">-</span></div>
+            </div>
+            <div style="margin:10px 0; font-size: 13px;">
+                模擬明日走勢: 
+                <input type="range" class="eval-slider" min="-10" max="10" step="0.5" value="0" oninput="updateUI('${id}')"> 
+                <span class="eval-pct">0%</span>
+            </div>
+            <div class="canvas-wrapper">
+                <canvas class="main-canvas" style="height:420px;"></canvas>
+            </div>
+            <div class="sub-data-box">
+                <span style="color:#b38f00;">OBV: <span class="val-obv">-</span></span>
+                <span style="color:#6a83a4;">OBV(MA30): <span class="val-obv30">-</span></span>
+                <span style="color:#d05a6e;">OBV(MA60): <span class="val-obv60">-</span></span>
+            </div>
+            <div class="canvas-wrapper">
+                <canvas class="sub-canvas" style="height:120px;"></canvas>
+            </div>
+        </div>`;
+    
+    // 儲存股票資料
+    div.stockData = data;
+    document.getElementById("result").appendChild(div);
+}
+
+/** 展開圖表並初始化繪圖引擎 **/
+function toggleChart(id, el) {
+    const c = document.getElementById('chart-'+id);
+    const item = el.parentElement;
+    const isVisible = c.style.display === 'block';
+    
+    // 切換顯示狀態
+    c.style.display = isVisible ? 'none' : 'block';
+    
+    // 切換箭頭方向
+    const arrow = el.querySelector('span:last-child');
+    if (arrow) {
+        arrow.textContent = isVisible ? '▼' : '▲';
+    }
+    
+    // 初始化圖表引擎（如果尚未初始化）
+    if (!isVisible && !item.mainE) {
+        try {
+            const mainCanvas = c.querySelector('.main-canvas');
+            const subCanvas = c.querySelector('.sub-canvas');
+            
+            if (mainCanvas && item.stockData && item.stockData.length > 0) {
+                item.mainE = new MainEngine(mainCanvas, item.stockData);
+            }
+            
+            if (subCanvas && item.stockData && item.stockData.length > 0) {
+                item.subE = new SubEngine(subCanvas, item.stockData);
+            }
+            
+            // 設定滑鼠移動事件回調
+            if (item.mainE) item.mainE.onMouseMove = () => updateUI(id);
+            if (item.subE) item.subE.onMouseMove = () => updateUI(id);
+            
+            // 初始渲染
+            updateUI(id);
+        } catch (error) {
+            console.error(`初始化圖表引擎錯誤 (${id}):`, error);
+            // 顯示錯誤訊息
+            c.innerHTML += `<div style="color: #d05a6e; padding: 10px; background: #ffe6e6; border-radius: 4px; margin-top: 10px;">
+                圖表初始化失敗: ${error.message}
+            </div>`;
+        }
+    } else if (!isVisible && item.mainE) {
+        // 如果已經初始化，重新渲染
+        updateUI(id);
+    }
+}
+
+/** 更新介面數值與圖表渲染 **/
+function updateUI(id) {
+    const c = document.getElementById('chart-'+id);
+    if (!c) return;
+    
+    const item = c.parentElement;
+    if (!item || !item.mainE) return;
+    
+    try {
+        // 取得滑桿數值
+        const slider = c.querySelector('.eval-slider');
+        const pct = slider ? parseFloat(slider.value) || 0 : 0;
+        
+        // 更新百分比顯示
+        const pctSpan = c.querySelector('.eval-pct');
+        if (pctSpan) {
+            pctSpan.textContent = (pct > 0 ? "+" : "") + pct + '%';
+            pctSpan.style.color = pct > 0 ? '#e53935' : (pct < 0 ? '#2e7d32' : '#333');
+        }
+        
+        // 取得勾選狀態
+        const chks = { 
+            lrc9: c.querySelector(`#chk-lrc9-${id}`)?.checked || true, 
+            lsma25: c.querySelector(`#chk-lsma25-${id}`)?.checked || true, 
+            bbmid: c.querySelector(`#chk-bbmid-${id}`)?.checked || true, 
+            bbup: c.querySelector(`#chk-bbup-${id}`)?.checked || true, 
+            bbdn: c.querySelector(`#chk-bbdn-${id}`)?.checked || true 
+        };
+        
+        // 渲染主圖表
+        const mainValues = item.mainE.render(pct, chks);
+        
+        // 渲染副圖表
+        let subValues = { obv: 0, ma30: 0, ma60: 0 };
+        if (item.subE) {
+            const mx = Math.max(item.mainE.getMouseX(), item.subE.getMouseX());
+            subValues = item.subE.render(pct, mx);
+        }
+        
+        // 更新主圖表數值顯示
+        if (mainValues) {
+            ['lrc9', 'lsma25', 'bbup', 'bbmid', 'bbdn'].forEach(k => { 
+                const span = c.querySelector(`.val-${k}`); 
+                if (span && mainValues[k]) {
+                    span.innerHTML = `${mainValues[k].v} <span style="color:${mainValues[k].c}; font-size:10px;">${mainValues[k].t}</span>`;
+                }
+            });
+        }
+        
+        // 更新副圖表數值顯示
+        if (subValues) {
+            const obvSpan = c.querySelector('.val-obv');
+            const ma30Span = c.querySelector('.val-obv30');
+            const ma60Span = c.querySelector('.val-obv60');
+            
+            if (obvSpan) obvSpan.textContent = Math.round(subValues.obv).toLocaleString();
+            if (ma30Span) ma30Span.textContent = Math.round(subValues.ma30).toLocaleString();
+            if (ma60Span) ma60Span.textContent = Math.round(subValues.ma60).toLocaleString();
+        }
+    } catch (error) {
+        console.error(`更新UI錯誤 (${id}):`, error);
+    }
+}
+
+/** 頁面載入完成後的初始化 **/
+window.addEventListener('DOMContentLoaded', () => {
+    // 檢查必要的全域變數
+    if (typeof STOCK_MAP === 'undefined') {
+        console.error('stockList.js 未正確載入');
+        document.getElementById('status').innerHTML = 
+            '<span style="color:#d05a6e;">錯誤：股票資料庫未載入</span>';
+    }
+    
+    if (typeof Indicators === 'undefined') {
+        console.error('indicators.js 未正確載入');
+        document.getElementById('status').innerHTML = 
+            '<span style="color:#d05a6e;">錯誤：技術指標模組未載入</span>';
+    }
+    
+    if (typeof MainEngine === 'undefined') {
+        console.error('mainEngine.js 未正確載入');
+        document.getElementById('status').innerHTML = 
+            '<span style="color:#d05a6e;">錯誤：主圖表引擎未載入</span>';
+    }
+    
+    if (typeof SubEngine === 'undefined') {
+        console.error('subEngine.js 未正確載入');
+        document.getElementById('status').innerHTML = 
+            '<span style="color:#d05a6e;">錯誤：副圖表引擎未載入</span>';
+    }
+    
+    if (typeof Strategies === 'undefined') {
+        console.warn('strategies.js 未載入，將使用內建設定');
+    }
+});
+</script>
+</body>
+</html>
