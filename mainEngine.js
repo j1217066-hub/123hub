@@ -1,4 +1,4 @@
-/* mainEngine.js - 完全修復版 */
+/* mainEngine.js - 完全修復版，增加高度適應 */
 function MainEngine(canvas, data) {
     // 參數驗證
     if (!canvas || !data || !Array.isArray(data) || data.length === 0) {
@@ -113,8 +113,9 @@ function MainEngine(canvas, data) {
                 throw new Error('無法取得Canvas Context');
             }
             
+            // 使用動態高度計算
             const canvasWidth = canvas.offsetWidth;
-            const canvasHeight = canvas.offsetHeight || 280;
+            const canvasHeight = canvas.offsetHeight || 320; // 預設高度增加
             
             canvas.width = canvasWidth * dpr; 
             canvas.height = canvasHeight * dpr; 
@@ -149,10 +150,14 @@ function MainEngine(canvas, data) {
                 maxP = minP + 1;
             }
             
+            // 增加繪圖區域高度，避免文字重疊
+            const topMargin = 20;   // 頂部邊距
+            const bottomMargin = 40; // 底部邊距
+            const plotHeight = canvasHeight - topMargin - bottomMargin;
+            
             const getY = (p) => {
                 if (p === null || isNaN(p)) return 0;
-                const plotHeight = canvasHeight - 80; // 為文字留出空間
-                return (1 - (p - minP) / (maxP - minP)) * plotHeight + 60;
+                return topMargin + (1 - (p - minP) / (maxP - minP)) * plotHeight;
             };
 
             // 清空畫布
@@ -207,8 +212,8 @@ function MainEngine(canvas, data) {
                 ctx.setLineDash([5, 5]); 
                 ctx.strokeStyle = "#000"; 
                 ctx.beginPath();
-                ctx.moveTo(mouseX, 0); 
-                ctx.lineTo(mouseX, canvasHeight); 
+                ctx.moveTo(mouseX, topMargin); 
+                ctx.lineTo(mouseX, canvasHeight - bottomMargin); 
                 ctx.stroke(); 
                 ctx.setLineDash([]);
             }
@@ -227,10 +232,10 @@ function MainEngine(canvas, data) {
                 
                 const drawText = (label, value, color = "#333") => {
                     ctx.fillStyle = "#777"; 
-                    ctx.fillText(label, sX, 20); 
+                    ctx.fillText(label, sX, 15); 
                     sX += ctx.measureText(label).width + 5;
                     ctx.fillStyle = color; 
-                    ctx.fillText(value, sX, 20); 
+                    ctx.fillText(value, sX, 15); 
                     sX += ctx.measureText(value).width + 15;
                 };
                 

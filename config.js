@@ -6,7 +6,8 @@ const APP_CONFIG = {
         'B': { name: 'LSMA轉折', color: '#6a83a4' },
         'C': { name: '今日多頭', color: '#d05a6e' },
         'D': { name: '多頭第一天', color: '#6b8e23' },
-        'E': { name: '起漲預測', color: '#ff9800' }
+        'E': { name: '起漲預測', color: '#ff9800' },
+        'F': { name: 'DMI多頭', color: '#9c27b0' }  // 新增F選項
     },
     
     // API 設定
@@ -29,7 +30,8 @@ const APP_CONFIG = {
         DOWN: '#2e7d32',
         WARNING: '#ff9800',
         NEUTRAL: '#7f8c8d',
-        PRIMARY: '#6b8e23'
+        PRIMARY: '#6b8e23',
+        DMI_BULLISH: '#9c27b0'  // 新增DMI多頭顏色
     },
     
     // 排序選項

@@ -1,7 +1,7 @@
 /** 
  * Gemini 技術分析選股 - 主應用邏輯
  * 從原 index.html 提取並重構
- * 版本: v.94
+ * 版本: v.96
  */
 
 /** 全域變數：儲存掃描結果 **/
@@ -25,7 +25,8 @@ async function runScan(mode) {
         document.getElementById("btnB"), 
         document.getElementById("btnC"), 
         document.getElementById("btnD"),
-        document.getElementById("btnE")
+        document.getElementById("btnE"),
+        document.getElementById("btnF")  // 新增F按鈕
     ];
 
     // 清空並重置
@@ -37,8 +38,10 @@ async function runScan(mode) {
     
     // 禁用按鈕
     btns.forEach(b => {
-        b.disabled = true;
-        b.style.opacity = "0.7";
+        if (b) {  // 確保按鈕存在
+            b.disabled = true;
+            b.style.opacity = "0.7";
+        }
     });
 
     const codes = Object.keys(STOCK_MAP), total = codes.length;
@@ -68,6 +71,7 @@ async function runScan(mode) {
                     case 'C': modeName = "多頭排列"; break;
                     case 'D': modeName = "多頭第一天"; break;
                     case 'E': modeName = "起漲預測"; break;
+                    case 'F': modeName = "DMI多頭"; break;  // 新增F模式
                 }
                 
                 status.innerHTML = `<span class="loading"></span>${modeName}掃描中<br>
@@ -91,7 +95,7 @@ async function runScan(mode) {
                 let isMatch = false;
                 let minRequiredPercent = null;
 
-                if (mode === 'A' || mode === 'B' || mode === 'C' || mode === 'D') {
+                if (mode === 'A' || mode === 'B' || mode === 'C' || mode === 'D' || mode === 'F') {  // 新增F模式
                     isMatch = Strategies.check(prices, mode);
                 } else if (mode === 'E') {
                     isMatch = checkRisingStartPrediction(prices);
@@ -110,6 +114,23 @@ async function runScan(mode) {
                         changePercent = ((lastData.close - prevData.close) / prevData.close * 100);
                     }
                     
+                    // 對於F模式，計算DMI詳細數據
+                    let dmiData = null;
+                    if (mode === 'F' && data.length >= 28) {
+                        const highs = data.map(d => d.high);
+                        const lows = data.map(d => d.low);
+                        const dmiResult = Indicators.getDMI(highs, lows, prices, 14);
+                        if (dmiResult) {
+                            const lastIdx = prices.length - 1;
+                            dmiData = {
+                                pdi: dmiResult.pdiSeries[lastIdx],
+                                mdi: dmiResult.mdiSeries[lastIdx],
+                                adx: dmiResult.adxSeries[lastIdx],
+                                adxr: dmiResult.adxrSeries[lastIdx]
+                            };
+                        }
+                    }
+                    
                     currentScanResults.push({
                         code: code,
                         name: STOCK_MAP[code],
@@ -117,6 +138,7 @@ async function runScan(mode) {
                         closePrice: lastData.close,
                         changePercent: changePercent,
                         minRequiredPercent: minRequiredPercent,
+                        dmiData: dmiData,  // 新增DMI數據
                         codeNumber: extractStockCodeNumber(code)
                     });
                     
@@ -136,8 +158,10 @@ async function runScan(mode) {
 
     // 啟用按鈕
     btns.forEach(b => {
-        b.disabled = false;
-        b.style.opacity = "1";
+        if (b) {  // 確保按鈕存在
+            b.disabled = false;
+            b.style.opacity = "1";
+        }
     });
     
     // 顯示所有結果
@@ -151,12 +175,15 @@ async function runScan(mode) {
         case 'C': modeName = "今日多頭排列"; break;
         case 'D': modeName = "多頭第一天"; break;
         case 'E': modeName = "起漲預測"; break;
+        case 'F': modeName = "DMI多頭排列"; break;  // 新增F模式
     }
     
     let statusHTML = `${modeName}分析完成！<br>找到 <span class="result-count">${matchCount}</span> 檔標的`;
     
     if (mode === 'E' && matchCount > 0) {
         statusHTML += `<br><small style="color:#ff9800;">${matchCount}檔潛在起漲股票</small>`;
+    } else if (mode === 'F' && matchCount > 0) {
+        statusHTML += `<br><small style="color:#9c27b0;">${matchCount}檔DMI多頭股票</small>`;
     }
     
     status.innerHTML = statusHTML;
@@ -189,7 +216,7 @@ function updateDisplayImmediately() {
     resultDiv.innerHTML = "";
     
     sortedResults.forEach(stock => {
-        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, currentScanMode, stock.minRequiredPercent);
+        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, currentScanMode, stock.minRequiredPercent, stock.dmiData);
     });
     
     document.getElementById("sortOptions").style.display = "flex";
@@ -248,7 +275,7 @@ function sortResults(sortMode) {
     }
     
     sortedResults.forEach(stock => {
-        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, currentScanMode, stock.minRequiredPercent);
+        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, currentScanMode, stock.minRequiredPercent, stock.dmiData);
     });
 }
 
@@ -339,7 +366,7 @@ function calculateMinRiseForBullish(prices) {
 }
 
 /** 產生股票顯示卡片 **/
-function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', minRequiredPercent = null) {
+function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', minRequiredPercent = null, dmiData = null) {
     const id = Math.random().toString(36).substr(2, 9);
     const div = document.createElement('div');
     div.className = "stock-item";
@@ -356,83 +383,91 @@ function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', 
     let extraInfo = '';
     if (mode === 'E' && minRequiredPercent !== null) {
         extraInfo = `<span class="extra-info">需漲${minRequiredPercent}%</span>`;
+    } else if (mode === 'F' && dmiData !== null) {
+        // 顯示DMI數值
+        extraInfo = `<span class="extra-info">+DI:${dmiData.pdi ? dmiData.pdi.toFixed(1) : '-'}</span>`;
     }
     
+    // 修改：合併模擬明日走勢和技術指標到主圖中
     div.innerHTML = `
         <div class="stock-title" onclick="toggleChart('${id}', this)">
-            <div>
-                <div>
-                    <span class="stock-code">${code}</span>
-                    ${extraInfo}
-                </div>
+            <div class="stock-info-line">
+                <span class="stock-code">${code}</span>
+                ${extraInfo}
                 <span class="stock-name">${STOCK_MAP[code]}</span>
-                <div class="stock-price-info">
-                    <span class="stock-price">${closePrice.toFixed(2)}</span>
-                    <span class="stock-change ${changeClass}" style="color:${changeColor};">
-                        <span class="${arrowClass}">${arrow}</span>
-                        ${sign}${changePercent.toFixed(2)}%
-                    </span>
-                </div>
+                <span class="stock-price">${closePrice.toFixed(2)}</span>
+                <span class="stock-change ${changeClass}" style="color:${changeColor};">
+                    <span class="${arrowClass}">${arrow}</span>
+                    ${sign}${changePercent.toFixed(2)}%
+                </span>
             </div>
-            <span style="font-size: 12px; color: #999;">▼</span>
+            <span class="expand-arrow">▼</span>
         </div>
         <div id="chart-${id}" class="chart-container">
-            <div class="simulation-control">
-                <div class="simulation-label">模擬明日走勢：</div>
-                <div class="slider-container">
-                    <input type="range" class="eval-slider" min="-10" max="10" step="0.5" value="0" 
-                           oninput="updateUI('${id}')"
-                           ontouchstart="this.style.opacity='0.8'"
-                           ontouchend="this.style.opacity='1'">
-                    <span class="eval-pct">0%</span>
+            <!-- 合併的圖表區域 -->
+            <div class="chart-combined-wrapper">
+                <!-- 技術指標控制區 -->
+                <div class="chart-controls">
+                    <div class="simulation-section">
+                        <div class="simulation-label">模擬明日走勢：</div>
+                        <div class="slider-container">
+                            <input type="range" class="eval-slider" min="-10" max="10" step="0.5" value="0" 
+                                   oninput="updateUI('${id}')"
+                                   ontouchstart="this.style.opacity='0.8'"
+                                   ontouchend="this.style.opacity='1'">
+                            <span class="eval-pct">0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="indicators-section">
+                        <div class="indicator-control">
+                            <input type="checkbox" checked id="chk-lrc9-${id}" onchange="updateUI('${id}')">
+                            <label for="chk-lrc9-${id}">LRC9:</label>
+                            <span class="val-lrc9 val-span">-</span>
+                        </div>
+                        <div class="indicator-control">
+                            <input type="checkbox" checked id="chk-lsma25-${id}" onchange="updateUI('${id}')">
+                            <label for="chk-lsma25-${id}">LSMA25:</label>
+                            <span class="val-lsma25 val-span">-</span>
+                        </div>
+                        <div class="indicator-control">
+                            <input type="checkbox" checked id="chk-bbmid-${id}" onchange="updateUI('${id}')">
+                            <label for="chk-bbmid-${id}">布林中:</label>
+                            <span class="val-bbmid val-span">-</span>
+                        </div>
+                        <div class="indicator-control">
+                            <input type="checkbox" checked id="chk-bbup-${id}" onchange="updateUI('${id}')">
+                            <label for="chk-bbup-${id}">上限:</label>
+                            <span class="val-bbup val-span">-</span>
+                        </div>
+                        <div class="indicator-control">
+                            <input type="checkbox" checked id="chk-bbdn-${id}" onchange="updateUI('${id}')">
+                            <label for="chk-bbdn-${id}">下限:</label>
+                            <span class="val-bbdn val-span">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 主圖表 -->
+                <div class="canvas-wrapper">
+                    <canvas id="main-canvas-${id}" class="main-canvas"></canvas>
                 </div>
             </div>
             
-            <div class="data-box">
-                <div class="data-item">
-                    <input type="checkbox" checked id="chk-lrc9-${id}" onchange="updateUI('${id}')">
-                    <label for="chk-lrc9-${id}">LRC9:</label>
-                    <span class="val-lrc9 val-span">-</span>
-                </div>
-                <div class="data-item">
-                    <input type="checkbox" checked id="chk-lsma25-${id}" onchange="updateUI('${id}')">
-                    <label for="chk-lsma25-${id}">LSMA25:</label>
-                    <span class="val-lsma25 val-span">-</span>
-                </div>
-                <div class="data-item">
-                    <input type="checkbox" checked id="chk-bbmid-${id}" onchange="updateUI('${id}')">
-                    <label for="chk-bbmid-${id}">布林中:</label>
-                    <span class="val-bbmid val-span">-</span>
-                </div>
-                <div class="data-item">
-                    <input type="checkbox" checked id="chk-bbup-${id}" onchange="updateUI('${id}')">
-                    <label for="chk-bbup-${id}">上限:</label>
-                    <span class="val-bbup val-span">-</span>
-                </div>
-                <div class="data-item">
-                    <input type="checkbox" checked id="chk-bbdn-${id}" onchange="updateUI('${id}')">
-                    <label for="chk-bbdn-${id}">下限:</label>
-                    <span class="val-bbdn val-span">-</span>
-                </div>
-            </div>
-            
+            <!-- OBV圖形 -->
             <div class="canvas-wrapper">
-                <canvas id="main-canvas-${id}" class="main-canvas"></canvas>
+                <canvas id="obv-canvas-${id}" class="obv-canvas"></canvas>
             </div>
             
-            <div class="obv-box">
-                <div class="obv-item" style="color:#b38f00;">OBV: <span class="val-obv">-</span></div>
-                <div class="obv-item" style="color:#6a83a4;">OBV(30): <span class="val-obv30">-</span></div>
-                <div class="obv-item" style="color:#d05a6e;">OBV(60): <span class="val-obv60">-</span></div>
-            </div>
-            
+            <!-- DMI圖形 -->
             <div class="canvas-wrapper">
-                <canvas id="sub-canvas-${id}" class="sub-canvas"></canvas>
+                <canvas id="dmi-canvas-${id}" class="dmi-canvas"></canvas>
             </div>
         </div>`;
     
     // 儲存資料
     div.stockData = data;
+    div.dmiData = dmiData;
     document.getElementById("result").appendChild(div);
 }
 
@@ -446,7 +481,7 @@ function toggleChart(id, el) {
     c.style.display = isVisible ? 'none' : 'block';
     
     // 切換箭頭
-    const arrow = el.querySelector('span:last-child');
+    const arrow = el.querySelector('.expand-arrow');
     if (arrow) {
         arrow.textContent = isVisible ? '▼' : '▲';
         arrow.style.transform = isVisible ? 'none' : 'rotate(180deg)';
@@ -456,19 +491,25 @@ function toggleChart(id, el) {
     if (!isVisible && !item.mainE) {
         try {
             const mainCanvas = c.querySelector('.main-canvas');
-            const subCanvas = c.querySelector('.sub-canvas');
+            const obvCanvas = c.querySelector('.obv-canvas');
+            const dmiCanvas = c.querySelector('.dmi-canvas');
             
             if (mainCanvas && item.stockData && item.stockData.length > 0) {
                 item.mainE = new MainEngine(mainCanvas, item.stockData);
             }
             
-            if (subCanvas && item.stockData && item.stockData.length > 0) {
-                item.subE = new SubEngine(subCanvas, item.stockData);
+            if (obvCanvas && item.stockData && item.stockData.length > 0) {
+                item.obvE = new OBVEngine(obvCanvas, item.stockData);
+            }
+            
+            if (dmiCanvas && item.stockData && item.stockData.length > 0) {
+                item.dmiE = new DMIEngine(dmiCanvas, item.stockData);
             }
             
             // 設定事件
             if (item.mainE) item.mainE.onMouseMove = () => updateUI(id);
-            if (item.subE) item.subE.onMouseMove = () => updateUI(id);
+            if (item.obvE) item.obvE.onMouseMove = () => updateUI(id);
+            if (item.dmiE) item.dmiE.onMouseMove = () => updateUI(id);
             
             // 初始渲染
             updateUI(id);
@@ -503,7 +544,7 @@ function updateUI(id) {
             pctSpan.style.color = pct > 0 ? '#e53935' : (pct < 0 ? '#2e7d32' : '#333');
         }
         
-        // 勾選狀態 - 修正：直接獲取checkbox狀態
+        // 勾選狀態
         const chks = { 
             lrc9: document.getElementById(`chk-lrc9-${id}`).checked, 
             lsma25: document.getElementById(`chk-lsma25-${id}`).checked, 
@@ -512,16 +553,10 @@ function updateUI(id) {
             bbdn: document.getElementById(`chk-bbdn-${id}`).checked 
         };
         
-        // 渲染
+        // 渲染主圖表
         const mainValues = item.mainE.render(pct, chks);
         
-        let subValues = { obv: 0, ma30: 0, ma60: 0 };
-        if (item.subE) {
-            const mx = Math.max(item.mainE.getMouseX(), item.subE.getMouseX());
-            subValues = item.subE.render(pct, mx);
-        }
-        
-        // 更新顯示
+        // 更新技術指標數值顯示
         if (mainValues) {
             ['lrc9', 'lsma25', 'bbup', 'bbmid', 'bbdn'].forEach(k => { 
                 const span = c.querySelector(`.val-${k}`); 
@@ -531,16 +566,66 @@ function updateUI(id) {
             });
         }
         
-        // 更新OBV
-        if (subValues) {
-            const obvSpan = c.querySelector('.val-obv');
-            const ma30Span = c.querySelector('.val-obv30');
-            const ma60Span = c.querySelector('.val-obv60');
+        // 計算 DMI 值
+        const data = item.stockData;
+        let dmiValues = { pdi: 0, mdi: 0, adx: 0, adxr: 0 };
+        let dmiSeries = { pdiSeries: [], mdiSeries: [], adxSeries: [], adxrSeries: [] };
+        
+        if (data && data.length >= 28) { // DMI需要至少28天數據
+            const prices = data.map(d => d.close);
+            const highs = data.map(d => d.high);
+            const lows = data.map(d => d.low);
             
-            if (obvSpan) obvSpan.textContent = Math.round(subValues.obv).toLocaleString();
-            if (ma30Span) ma30Span.textContent = Math.round(subValues.ma30).toLocaleString();
-            if (ma60Span) ma60Span.textContent = Math.round(subValues.ma60).toLocaleString();
+            // 如果模擬明日漲跌，加入模擬價格
+            if (Math.abs(pct) > 0.01) {
+                const lastData = data[data.length - 1];
+                const simClose = lastData.close * (1 + pct / 100);
+                const simHigh = Math.max(lastData.high, simClose);
+                const simLow = Math.min(lastData.low, simClose);
+                
+                prices.push(simClose);
+                highs.push(simHigh);
+                lows.push(simLow);
+            }
+            
+            const dmiResult = Indicators.getDMI(highs, lows, prices, 14);
+            
+            // 確保有有效的DMI數據
+            if (dmiResult && dmiResult.pdiSeries && dmiResult.pdiSeries.length > 0) {
+                dmiValues = {
+                    pdi: dmiResult.pdi !== null && !isNaN(dmiResult.pdi) ? dmiResult.pdi : 0,
+                    mdi: dmiResult.mdi !== null && !isNaN(dmiResult.mdi) ? dmiResult.mdi : 0,
+                    adx: dmiResult.adx !== null && !isNaN(dmiResult.adx) ? dmiResult.adx : 0,
+                    adxr: dmiResult.adxr !== null && !isNaN(dmiResult.adxr) ? dmiResult.adxr : 0
+                };
+                dmiSeries = {
+                    pdiSeries: dmiResult.pdiSeries || [],
+                    mdiSeries: dmiResult.mdiSeries || [],
+                    adxSeries: dmiResult.adxSeries || [],
+                    adxrSeries: dmiResult.adxrSeries || []
+                };
+            }
         }
+        
+        // 計算共享的滑鼠X位置
+        const mx = Math.max(
+            item.mainE ? item.mainE.getMouseX() : -1,
+            item.obvE ? item.obvE.getMouseX() : -1,
+            item.dmiE ? item.dmiE.getMouseX() : -1
+        );
+        
+        // 渲染 OBV 圖形
+        if (item.obvE) {
+            item.obvE.render(pct, mx);
+        }
+        
+        // 渲染 DMI 圖形
+        if (item.dmiE && dmiSeries.pdiSeries.length > 0) {
+            item.dmiE.render(dmiSeries.pdiSeries, dmiSeries.mdiSeries, 
+                            dmiSeries.adxSeries, dmiSeries.adxrSeries, 
+                            dmiValues.pdi, dmiValues.mdi, dmiValues.adx, dmiValues.adxr, mx);
+        }
+        
     } catch (error) {
         console.error(`更新UI錯誤 (${id}):`, error);
     }
@@ -570,9 +655,12 @@ window.addEventListener('DOMContentLoaded', () => {
             '<span style="color:#d05a6e;">錯誤：主圖表引擎未載入</span>';
     }
     
-    if (typeof SubEngine === 'undefined') {
-        document.getElementById('status').innerHTML = 
-            '<span style="color:#d05a6e;">錯誤：副圖表引擎未載入</span>';
+    if (typeof OBVEngine === 'undefined') {
+        console.warn('OBVEngine 未載入，OBV圖形將無法顯示');
+    }
+    
+    if (typeof DMIEngine === 'undefined') {
+        console.warn('DMIEngine 未載入，DMI圖形將無法顯示');
     }
     
     if (typeof Strategies === 'undefined') {

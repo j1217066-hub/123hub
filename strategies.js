@@ -13,7 +13,7 @@ const Strategies = {
                 return false;
             }
             
-            if (!['A', 'B', 'C', 'D', 'E'].includes(mode)) {
+            if (!['A', 'B', 'C', 'D', 'E', 'F'].includes(mode)) {
                 return false;
             }
             
@@ -99,6 +99,59 @@ const Strategies = {
                     
                     // 如果所有漲幅都不會形成多頭排列，則不符合條件
                     return false;
+
+                case 'F': // DMI多頭：+DI > -DI 且 ADX > ADXR 且 今日指標大於昨日
+                    // 需要至少29天的價格數據來計算DMI（因為需要前一日數據）
+                    if (prices.length < 29) return false;
+                    
+                    // 計算DMI指標
+                    // 由於Indicators.getDMI需要highs, lows, closes，我們使用價格數據模擬
+                    // 實際應用中應該使用完整的高低收數據，這裡為簡化使用收盤價
+                    const highs = prices.map(p => p * 1.01); // 假設高點為收盤價的1.01倍
+                    const lows = prices.map(p => p * 0.99);  // 假設低點為收盤價的0.99倍
+                    
+                    const dmiResult = Indicators.getDMI(highs, lows, prices, 14);
+                    
+                    // 檢查是否有有效的DMI數據
+                    if (!dmiResult || 
+                        dmiResult.pdi === null || dmiResult.mdi === null || 
+                        dmiResult.adx === null || dmiResult.adxr === null) {
+                        return false;
+                    }
+                    
+                    // 取得今日和昨日的DMI值
+                    const lastIdx = prices.length - 1;
+                    
+                    // 從序列中取得今日和昨日值
+                    const curPDI = dmiResult.pdiSeries[lastIdx];
+                    const curMDI = dmiResult.mdiSeries[lastIdx];
+                    const curADX = dmiResult.adxSeries[lastIdx];
+                    const curADXR = dmiResult.adxrSeries[lastIdx];
+                    
+                    const prePDI = dmiResult.pdiSeries[lastIdx - 1];
+                    const preMDI = dmiResult.mdiSeries[lastIdx - 1];
+                    const preADX = dmiResult.adxSeries[lastIdx - 1];
+                    const preADXR = dmiResult.adxrSeries[lastIdx - 1];
+                    
+                    // 檢查所有值是否有效
+                    if (!isValid(curPDI, curMDI, curADX, curADXR, prePDI, preMDI, preADX, preADXR)) {
+                        return false;
+                    }
+                    
+                    // 檢查DMI多頭條件：
+                    // 1. +DI 大於 -DI
+                    // 2. ADX 大於 ADXR
+                    // 3. 今日+DI 大於 昨日+DI
+                    // 4. 今日ADX 大於 昨日ADX
+                    // 5. 今日ADXR 大於 昨日ADXR
+                    const isDMIBullish = 
+                        curPDI > curMDI &&          // +DI > -DI
+                        curADX > curADXR &&         // ADX > ADXR
+                        curPDI > prePDI &&          // 今日+DI > 昨日+DI
+                        curADX > preADX &&          // 今日ADX > 昨日ADX
+                        curADXR > preADXR;          // 今日ADXR > 昨日ADXR
+                    
+                    return isDMIBullish;
 
                 default:
                     return false;

@@ -3,23 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Gemini 技術分析選股 v.94</title>
+    <title>Gemini 技術分析選股 v.96</title>
     <!-- 分離的 CSS -->
     <link rel="stylesheet" href="styles.css">
     <!-- 原有的 JS 模組 -->
     <script src="stockList.js"></script>
     <script src="indicators.js"></script>
     <script src="mainEngine.js"></script>
-    <script src="subEngine.js"></script>
+    <!-- 修正後的圖形引擎 -->
+    <script src="obvEngine.js"></script>
+    <script src="dmiEngine.js"></script>
     <script src="strategies.js"></script>
-    <!-- 新增：配置檔案 -->
+    <!-- 配置檔案 -->
     <script src="config.js"></script>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h2>Gemini 技術分析選股 v.94</h2>
-        <div class="header-subtitle">手機優化版 | 觸控友好設計</div>
+        <h2>Gemini 技術分析選股 v.96</h2>
+        <div class="header-subtitle">手機優化版 | 觸控友好設計 | 完整技術指標顯示 | 新增DMI多頭選項</div>
     </div>
     
     <div class="control-panel">
@@ -29,6 +31,7 @@
             <button id="btnC" class="btn-c" onclick="runScan('C')">今日多頭</button>
             <button id="btnD" class="btn-d" onclick="runScan('D')">多頭第一天</button>
             <button id="btnE" class="btn-e" onclick="runScan('E')">起漲預測</button>
+            <button id="btnF" class="btn-f" onclick="runScan('F')">DMI多頭</button>  <!-- 新增F按鈕 -->
         </div>
         
         <div id="progress-container">
@@ -54,10 +57,35 @@
         <div class="hint-item">• 點擊股票名稱查看詳細圖表</div>
         <div class="hint-item">• 在圖表上左右滑動查看歷史</div>
         <div class="hint-item">• 拖動滑桿模擬明日走勢</div>
+        <div class="hint-item">• DMI線條：+DI(黃)  -DI(藍)  ADX(粉)  ADXR(灰虛線)</div>
+        <div class="hint-item">• DMI多頭：+DI > -DI 且 ADX > ADXR 且指標全面上升</div>
     </div>
 </div>
 
 <!-- 主應用程式邏輯 -->
 <script src="app.js"></script>
+
+<!-- 初始化檢查 -->
+<script>
+// 頁面載入時檢查必要模組
+window.addEventListener('DOMContentLoaded', function() {
+    console.log('Gemini 技術分析選股 v.96 已載入');
+    console.log('包含模組:');
+    console.log('- STOCK_MAP:', typeof STOCK_MAP !== 'undefined' ? '已載入' : '未載入');
+    console.log('- Indicators:', typeof Indicators !== 'undefined' ? '已載入' : '未載入');
+    console.log('- MainEngine:', typeof MainEngine !== 'undefined' ? '已載入' : '未載入');
+    console.log('- OBVEngine:', typeof OBVEngine !== 'undefined' ? '已載入' : '未載入');
+    console.log('- DMIEngine:', typeof DMIEngine !== 'undefined' ? '已載入' : '未載入');
+    console.log('- Strategies:', typeof Strategies !== 'undefined' ? '已載入' : '未載入');
+    console.log('- APP_CONFIG:', typeof APP_CONFIG !== 'undefined' ? '已載入' : '未載入');
+    
+    // 檢查是否為手機
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        console.log('偵測為行動裝置');
+    } else {
+        console.log('偵測為桌面裝置');
+    }
+});
+</script>
 </body>
 </html>

@@ -62,6 +62,14 @@ body {
 
 @media (min-width: 768px) {
     .btn-group {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .btn-group {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
@@ -103,6 +111,7 @@ button:active {
 .btn-c { background: #d05a6e; } /* 胭脂色 */
 .btn-d { background: #6b8e23; } /* 橄欖綠 */
 .btn-e { background: #ff9800; } /* 橙色 */
+.btn-f { background: #9c27b0; } /* 紫色 - DMI多頭 */
 
 button:disabled { 
     background: #dcdcdc !important; 
@@ -158,9 +167,9 @@ button:disabled {
     transform: translateY(2px);
 }
 
-/* 股票標題 - 觸控友好 */
+/* 股票標題 - 一行式顯示 */
 .stock-title { 
-    font-size: 16px; 
+    font-size: 14px; 
     font-weight: 600; 
     cursor: pointer; 
     display: flex; 
@@ -169,49 +178,57 @@ button:disabled {
     color: #2f4f4f; 
     padding: 8px 0;
     -webkit-tap-highlight-color: transparent;
+    width: 100%;
 }
 
 .stock-title:active {
     opacity: 0.7;
 }
 
+/* 一行式股票資訊 */
+.stock-info-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1;
+    min-width: 0; /* 防止內容溢出 */
+}
+
 .stock-code { 
     font-weight: 700; 
     color: #2f4f4f; 
-    font-size: 16px;
-    margin-right: 8px;
+    font-size: 14px;
+    white-space: nowrap;
 }
 
 .stock-name { 
     font-size: 13px; 
     color: #666; 
-    display: block;
-    margin-top: 2px;
-}
-
-.stock-price-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 8px;
-    flex-wrap: wrap;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .stock-price { 
-    font-size: 17px; 
+    font-size: 14px; 
     font-weight: 700;
     color: #2f4f4f;
+    white-space: nowrap;
+    margin-left: auto;
+    padding-right: 10px;
 }
 
 .stock-change { 
-    font-size: 14px; 
+    font-size: 13px; 
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    border-radius: 6px;
+    gap: 2px;
+    padding: 2px 6px;
+    border-radius: 4px;
     background: rgba(229, 57, 53, 0.1);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .stock-change.negative {
@@ -220,12 +237,12 @@ button:disabled {
 
 .up-arrow { 
     color: #e53935; 
-    font-size: 12px;
+    font-size: 10px;
 }
 
 .down-arrow { 
     color: #2e7d32; 
-    font-size: 12px;
+    font-size: 10px;
 }
 
 /* 額外資訊 */
@@ -233,10 +250,19 @@ button:disabled {
     font-size: 11px;
     color: #ff9800;
     font-weight: 600;
-    margin-left: 8px;
-    padding: 3px 8px;
+    padding: 1px 4px;
     background: rgba(255, 152, 0, 0.1);
-    border-radius: 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+/* 展開箭頭 */
+.expand-arrow {
+    font-size: 10px;
+    color: #999;
+    margin-left: 8px;
+    flex-shrink: 0;
+    transition: transform 0.2s;
 }
 
 /* 圖表區域 */
@@ -247,17 +273,30 @@ button:disabled {
     border-top: 1px dashed #eee;
 }
 
-.simulation-control {
-    margin: 15px 0;
-    padding: 12px;
+/* 合併圖表區域 */
+.chart-combined-wrapper {
+    margin-bottom: 12px;
+}
+
+/* 圖表控制區域 */
+.chart-controls {
     background: #f8f9fa;
     border-radius: 8px;
     border: 1px solid #e9ecef;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+/* 模擬走勢區塊 */
+.simulation-section {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
 }
 
 .simulation-label {
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     color: #495057;
     font-weight: 500;
     font-size: 14px;
@@ -266,7 +305,7 @@ button:disabled {
 .slider-container {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .eval-slider {
@@ -280,76 +319,72 @@ button:disabled {
 
 .eval-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: #ff9800;
     cursor: pointer;
     border: 3px solid white;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .eval-pct {
-    min-width: 60px;
-    font-size: 14px;
+    min-width: 50px;
+    font-size: 13px;
     font-weight: 700;
     text-align: center;
-    padding: 6px 10px;
+    padding: 4px 8px;
     background: white;
-    border-radius: 6px;
+    border-radius: 4px;
     border: 1px solid #dee2e6;
 }
 
-/* 數據盒子 */
-.data-box { 
-    background: #fdfdfd; 
-    border: 1px solid #eee; 
-    border-radius: 8px; 
-    padding: 12px; 
-    margin: 15px 0; 
+/* 技術指標控制區 */
+.indicators-section {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px; 
-    font-size: 12px;
+    gap: 10px;
 }
 
 @media (min-width: 480px) {
-    .data-box {
+    .indicators-section {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
 @media (min-width: 768px) {
-    .data-box {
+    .indicators-section {
         grid-template-columns: repeat(5, 1fr);
     }
 }
 
-.data-item {
+.indicator-control {
     display: flex;
     align-items: center;
-    gap: 6px;
-    min-height: 32px;
+    gap: 4px;
+    font-size: 11px;
 }
 
-.data-item input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    /* 改回原本的藍色 */
+.indicator-control input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
     accent-color: #2196f3;
+    margin: 0;
 }
 
-.data-item label {
+.indicator-control label {
     flex: 1;
     cursor: pointer;
-    font-size: 12px;
+    white-space: nowrap;
+    color: #495057;
 }
 
-.val-span {
-    margin-left: 4px;
+.indicator-control .val-span {
     font-weight: 600;
     color: #333;
-    font-size: 12px;
+    font-size: 11px;
+    min-width: 40px;
+    text-align: right;
 }
 
 /* 圖表畫布 */
@@ -369,41 +404,48 @@ canvas {
     touch-action: pan-x;
 }
 
+/* 加長的主圖表高度 */
 .main-canvas {
-    height: 280px !important;
+    height: 320px !important;
 }
 
-.sub-canvas {
-    height: 100px !important;
+.obv-canvas {
+    height: 120px !important;
+}
+
+.dmi-canvas {
+    height: 120px !important;
 }
 
 @media (min-width: 768px) {
     .main-canvas {
-        height: 350px !important;
+        height: 400px !important;
     }
     
-    .sub-canvas {
-        height: 120px !important;
+    .obv-canvas {
+        height: 150px !important;
     }
-}
-
-/* OBV數據顯示 */
-.obv-box { 
-    background: #fafafa; 
-    border: 1px solid #eee; 
-    border-radius: 6px; 
-    padding: 10px; 
-    margin-bottom: 10px; 
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px; 
-    font-size: 11px; 
-    font-weight: 600;
-}
-
-.obv-item {
-    flex: 1;
-    min-width: 100px;
+    
+    .dmi-canvas {
+        height: 150px !important;
+    }
+    
+    /* 桌面板增加控制區間距 */
+    .chart-controls {
+        padding: 16px;
+    }
+    
+    .indicators-section {
+        gap: 12px;
+    }
+    
+    .indicator-control {
+        font-size: 12px;
+    }
+    
+    .indicator-control .val-span {
+        font-size: 12px;
+    }
 }
 
 /* 排序選項 */
@@ -509,8 +551,8 @@ canvas {
 /* 橫向模式優化 */
 @media (orientation: landscape) {
     .btn-group {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
     }
     
     button {
@@ -519,10 +561,283 @@ canvas {
     }
     
     .main-canvas {
-        height: 220px !important;
+        height: 260px !important;
     }
     
-    .sub-canvas {
-        height: 80px !important;
+    .obv-canvas {
+        height: 100px !important;
     }
+    
+    .dmi-canvas {
+        height: 100px !important;
+    }
+    
+    /* 橫向時調整控制區 */
+    .chart-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .simulation-section {
+        flex: 1;
+        min-width: 200px;
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+        border-right: 1px solid #eee;
+        padding-right: 12px;
+    }
+    
+    .indicators-section {
+        flex: 2;
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    /* 橫向時讓股票資訊更緊湊 */
+    .stock-info-line {
+        gap: 6px;
+    }
+    
+    .stock-code {
+        font-size: 13px;
+    }
+    
+    .stock-name {
+        font-size: 12px;
+    }
+    
+    .stock-price {
+        font-size: 13px;
+        padding-right: 5px;
+    }
+    
+    .stock-change {
+        font-size: 12px;
+        padding: 1px 4px;
+    }
+}
+
+/* 小螢幕優化 */
+@media (max-width: 480px) {
+    .btn-group {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .stock-info-line {
+        gap: 4px;
+    }
+    
+    .stock-code {
+        font-size: 13px;
+    }
+    
+    .stock-name {
+        font-size: 12px;
+        max-width: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .stock-price {
+        font-size: 13px;
+        padding-right: 4px;
+    }
+    
+    .stock-change {
+        font-size: 11px;
+        padding: 1px 3px;
+    }
+    
+    .extra-info {
+        font-size: 10px;
+        padding: 1px 3px;
+    }
+    
+    /* 小螢幕調整圖表控制 */
+    .chart-controls {
+        padding: 10px;
+    }
+    
+    .simulation-label {
+        font-size: 13px;
+    }
+    
+    .eval-pct {
+        min-width: 45px;
+        font-size: 12px;
+        padding: 3px 6px;
+    }
+    
+    .indicators-section {
+        gap: 8px;
+    }
+    
+    .indicator-control {
+        font-size: 10px;
+    }
+    
+    .indicator-control .val-span {
+        font-size: 10px;
+        min-width: 35px;
+    }
+}
+
+/* 平板優化 */
+@media (min-width: 768px) {
+    .btn-group {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .stock-info-line {
+        gap: 12px;
+    }
+    
+    .stock-code {
+        font-size: 15px;
+    }
+    
+    .stock-name {
+        font-size: 14px;
+    }
+    
+    .stock-price {
+        font-size: 15px;
+        padding-right: 15px;
+    }
+    
+    .stock-change {
+        font-size: 14px;
+        padding: 3px 8px;
+    }
+    
+    .extra-info {
+        font-size: 12px;
+        padding: 2px 6px;
+    }
+}
+
+/* 大螢幕優化 */
+@media (min-width: 1024px) {
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    button {
+        min-width: 130px;
+        padding: 12px 14px;
+        font-size: 13px;
+    }
+    
+    .main-canvas {
+        height: 450px !important;
+    }
+    
+    .obv-canvas {
+        height: 180px !important;
+    }
+    
+    .dmi-canvas {
+        height: 180px !important;
+    }
+}
+
+/* 超大螢幕優化 */
+@media (min-width: 1200px) {
+    button {
+        min-width: 150px;
+        padding: 14px 16px;
+        font-size: 14px;
+    }
+}
+
+/* F按鈕的特殊效果 */
+.btn-f:active {
+    background: #7b1fa2; /* 按下時深一點的紫色 */
+}
+
+/* 防止手機雙擊縮放時的文字選擇 */
+.stock-title {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* 滾動條美化 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 焦點狀態優化 */
+button:focus-visible,
+input:focus-visible {
+    outline: 2px solid #2196f3;
+    outline-offset: 2px;
+}
+
+/* 禁用狀態 */
+button:disabled,
+input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 平滑動畫 */
+.stock-item,
+.chart-container,
+.sort-tab,
+button {
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 錯誤狀態 */
+.error-message {
+    color: #d05a6e;
+    background: #ffe6e6;
+    padding: 10px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-size: 13px;
+    border: 1px solid #ffcccc;
+}
+
+/* 成功狀態 */
+.success-message {
+    color: #2e7d32;
+    background: #e8f5e9;
+    padding: 10px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-size: 13px;
+    border: 1px solid #c8e6c9;
+}
+
+/* 警告狀態 */
+.warning-message {
+    color: #ff9800;
+    background: #fff3e0;
+    padding: 10px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-size: 13px;
+    border: 1px solid #ffe0b2;
 }
