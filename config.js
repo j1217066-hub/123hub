@@ -10,9 +10,9 @@ const APP_CONFIG = {
         'F': { name: 'DMI多頭', color: '#9c27b0' }  // 新增F選項
     },
     
-    // API 設定
+    // API 設定 - 修改這裡：改為 query2 (舊版 Yahoo API)
     API: {
-        YAHOO_CHART: 'https://query1.finance.yahoo.com/v8/finance/chart/',
+        YAHOO_CHART: 'https://query2.finance.yahoo.com/v8/finance/chart/',
         CORS_PROXY: 'https://corsproxy.io/?',
         PARAMS: 'range=1y&interval=1d'
     },

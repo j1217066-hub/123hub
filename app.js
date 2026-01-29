@@ -58,7 +58,8 @@ async function runScan(mode) {
         const chunk = codes.slice(i, i + chunkSize);
         const promises = chunk.map(async (code) => {
             try {
-                const r = await fetch("https://corsproxy.io/?" + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${code}?range=1y&interval=1d`));
+                // 修改這裡：將 query1 改為 query2 (舊版 Yahoo API)
+                const r = await fetch("https://corsproxy.io/?" + encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${code}?range=1y&interval=1d`));
                 const j = await r.json();
                 scanned++;
                 const pct = Math.round((scanned / total) * 100);
