@@ -1,7 +1,7 @@
 /** 
  * Gemini 技術分析選股 - 主應用邏輯
  * 從原 index.html 提取並重構
- * 版本: v.96
+ * 版本: v.97 (新增OBV轉折)
  */
 
 /** 全域變數：儲存掃描結果 **/
@@ -26,7 +26,8 @@ async function runScan(mode) {
         document.getElementById("btnC"), 
         document.getElementById("btnD"),
         document.getElementById("btnE"),
-        document.getElementById("btnF")  // 新增F按鈕
+        document.getElementById("btnF"),
+        document.getElementById("btnG")  // 新增G按鈕
     ];
 
     // 清空並重置
@@ -72,7 +73,8 @@ async function runScan(mode) {
                     case 'C': modeName = "多頭排列"; break;
                     case 'D': modeName = "多頭第一天"; break;
                     case 'E': modeName = "起漲預測"; break;
-                    case 'F': modeName = "DMI多頭"; break;  // 新增F模式
+                    case 'F': modeName = "DMI多頭"; break;
+                    case 'G': modeName = "OBV轉折"; break;  // 新增G模式
                 }
                 
                 status.innerHTML = `<span class="loading"></span>${modeName}掃描中<br>
@@ -93,11 +95,29 @@ async function runScan(mode) {
                 if (data.length < 30) return;
                 
                 const prices = data.map(d => d.close);
+                const volumes = data.map(d => d.volume);
                 let isMatch = false;
                 let minRequiredPercent = null;
+                let obvData = null;
 
-                if (mode === 'A' || mode === 'B' || mode === 'C' || mode === 'D' || mode === 'F') {  // 新增F模式
+                if (mode === 'A' || mode === 'B' || mode === 'C' || mode === 'D' || mode === 'F' || mode === 'G') {  // 新增G模式
                     isMatch = Strategies.check(prices, mode);
+                    
+                    // 對於G模式，計算OBV詳細數據
+                    if (mode === 'G' && data.length >= 60) {
+                        const obvResult = Indicators.calcOBV(prices, volumes, 120);
+                        const obv30 = Indicators.getSMA(obvResult, 30);
+                        const obv60 = Indicators.getSMA(obvResult, 60);
+                        
+                        if (obvResult && obv30 && obv60) {
+                            const lastIdx = obvResult.length - 1;
+                            obvData = {
+                                obv: obvResult[lastIdx],
+                                obv30: obv30[lastIdx],
+                                obv60: obv60[lastIdx]
+                            };
+                        }
+                    }
                 } else if (mode === 'E') {
                     isMatch = checkRisingStartPrediction(prices);
                     if (isMatch) {
@@ -139,7 +159,8 @@ async function runScan(mode) {
                         closePrice: lastData.close,
                         changePercent: changePercent,
                         minRequiredPercent: minRequiredPercent,
-                        dmiData: dmiData,  // 新增DMI數據
+                        dmiData: dmiData,
+                        obvData: obvData,  // 新增OBV數據
                         codeNumber: extractStockCodeNumber(code)
                     });
                     
@@ -176,7 +197,8 @@ async function runScan(mode) {
         case 'C': modeName = "今日多頭排列"; break;
         case 'D': modeName = "多頭第一天"; break;
         case 'E': modeName = "起漲預測"; break;
-        case 'F': modeName = "DMI多頭排列"; break;  // 新增F模式
+        case 'F': modeName = "DMI多頭排列"; break;
+        case 'G': modeName = "OBV轉折"; break;  // 新增G模式
     }
     
     let statusHTML = `${modeName}分析完成！<br>找到 <span class="result-count">${matchCount}</span> 檔標的`;
@@ -185,6 +207,8 @@ async function runScan(mode) {
         statusHTML += `<br><small style="color:#ff9800;">${matchCount}檔潛在起漲股票</small>`;
     } else if (mode === 'F' && matchCount > 0) {
         statusHTML += `<br><small style="color:#9c27b0;">${matchCount}檔DMI多頭股票</small>`;
+    } else if (mode === 'G' && matchCount > 0) {
+        statusHTML += `<br><small style="color:#2196f3;">${matchCount}檔OBV轉折股票</small>`;
     }
     
     status.innerHTML = statusHTML;
@@ -217,7 +241,7 @@ function updateDisplayImmediately() {
     resultDiv.innerHTML = "";
     
     sortedResults.forEach(stock => {
-        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, currentScanMode, stock.minRequiredPercent, stock.dmiData);
+        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, currentScanMode, stock.minRequiredPercent, stock.dmiData, stock.obvData);
     });
     
     document.getElementById("sortOptions").style.display = "flex";
@@ -276,7 +300,7 @@ function sortResults(sortMode) {
     }
     
     sortedResults.forEach(stock => {
-        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, currentScanMode, stock.minRequiredPercent, stock.dmiData);
+        addStockItem(stock.code, stock.data, stock.closePrice, stock.changePercent, currentScanMode, stock.minRequiredPercent, stock.dmiData, stock.obvData);
     });
 }
 
@@ -367,7 +391,7 @@ function calculateMinRiseForBullish(prices) {
 }
 
 /** 產生股票顯示卡片 **/
-function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', minRequiredPercent = null, dmiData = null) {
+function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', minRequiredPercent = null, dmiData = null, obvData = null) {
     const id = Math.random().toString(36).substr(2, 9);
     const div = document.createElement('div');
     div.className = "stock-item";
@@ -387,6 +411,9 @@ function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', 
     } else if (mode === 'F' && dmiData !== null) {
         // 顯示DMI數值
         extraInfo = `<span class="extra-info">+DI:${dmiData.pdi ? dmiData.pdi.toFixed(1) : '-'}</span>`;
+    } else if (mode === 'G' && obvData !== null) {
+        // 顯示OBV數值
+        extraInfo = `<span class="extra-info">OBV:${obvData.obv ? Math.round(obvData.obv).toLocaleString() : '-'}</span>`;
     }
     
     // 修改：合併模擬明日走勢和技術指標到主圖中
@@ -469,6 +496,7 @@ function addStockItem(code, data, closePrice = 0, changePercent = 0, mode = '', 
     // 儲存資料
     div.stockData = data;
     div.dmiData = dmiData;
+    div.obvData = obvData;
     document.getElementById("result").appendChild(div);
 }
 
@@ -567,8 +595,43 @@ function updateUI(id) {
             });
         }
         
-        // 計算 DMI 值
+        // 計算 OBV 值
         const data = item.stockData;
+        let obvValues = { obv: 0, obv30: 0, obv60: 0 };
+        let obvSeries = { obvSeries: [], obv30Series: [], obv60Series: [] };
+        
+        if (data && data.length >= 60) { // OBV需要至少60天數據
+            const prices = data.map(d => d.close);
+            const volumes = data.map(d => d.volume);
+            
+            // 如果模擬明日漲跌，加入模擬數據
+            if (Math.abs(pct) > 0.01) {
+                const lastData = data[data.length - 1];
+                const simClose = lastData.close * (1 + pct / 100);
+                prices.push(simClose);
+                volumes.push(0); // 明日成交量未知，設為0
+            }
+            
+            const obvResult = Indicators.calcOBV(prices, volumes, 120);
+            const obv30 = Indicators.getSMA(obvResult, 30);
+            const obv60 = Indicators.getSMA(obvResult, 60);
+            
+            if (obvResult && obvResult.length > 0) {
+                const lastIdx = obvResult.length - 1;
+                obvValues = {
+                    obv: obvResult[lastIdx],
+                    obv30: obv30[lastIdx],
+                    obv60: obv60[lastIdx]
+                };
+                obvSeries = {
+                    obvSeries: obvResult,
+                    obv30Series: obv30,
+                    obv60Series: obv60
+                };
+            }
+        }
+        
+        // 計算 DMI 值
         let dmiValues = { pdi: 0, mdi: 0, adx: 0, adxr: 0 };
         let dmiSeries = { pdiSeries: [], mdiSeries: [], adxSeries: [], adxrSeries: [] };
         
@@ -616,7 +679,7 @@ function updateUI(id) {
         );
         
         // 渲染 OBV 圖形
-        if (item.obvE) {
+        if (item.obvE && obvSeries.obvSeries.length > 0) {
             item.obvE.render(pct, mx);
         }
         

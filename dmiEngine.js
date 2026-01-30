@@ -205,79 +205,212 @@ function DMIEngine(canvas, data) {
                 
                 // 顯示當前位置的數值
                 const hoverIdx = Math.min(Math.floor(curX / barW), pdiSlice.length - 1);
-                const pdiVal = hoverIdx >= 0 && hoverIdx < pdiSlice.length ? pdiSlice[hoverIdx] : null;
-                const mdiVal = hoverIdx >= 0 && hoverIdx < mdiSlice.length ? mdiSlice[hoverIdx] : null;
-                const adxVal = hoverIdx >= 0 && hoverIdx < adxSlice.length ? adxSlice[hoverIdx] : null;
-                const adxrVal = hoverIdx >= 0 && hoverIdx < adxrSlice.length ? adxrSlice[hoverIdx] : null;
+                
+                // 計算實際的數據索引
+                const actualIdx = startIdx + hoverIdx;
+                const prevIdx = actualIdx - 1;
+                
+                // 獲取當前值
+                const pdiVal = hoverIdx >= 0 && actualIdx < pdiSeries.length ? pdiSeries[actualIdx] : null;
+                const mdiVal = hoverIdx >= 0 && actualIdx < mdiSeries.length ? mdiSeries[actualIdx] : null;
+                const adxVal = hoverIdx >= 0 && actualIdx < adxSeries.length ? adxSeries[actualIdx] : null;
+                const adxrVal = hoverIdx >= 0 && actualIdx < adxrSeries.length ? adxrSeries[actualIdx] : null;
+                
+                // 獲取前一日值
+                const prevPdiVal = prevIdx >= 0 && prevIdx < pdiSeries.length ? pdiSeries[prevIdx] : null;
+                const prevMdiVal = prevIdx >= 0 && prevIdx < mdiSeries.length ? mdiSeries[prevIdx] : null;
+                const prevAdxVal = prevIdx >= 0 && prevIdx < adxSeries.length ? adxSeries[prevIdx] : null;
+                const prevAdxrVal = prevIdx >= 0 && prevIdx < adxrSeries.length ? adxrSeries[prevIdx] : null;
                 
                 // 清除頂部區域
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(0, 0, canvasWidth, 25);
                 
-                // 顯示當前滑鼠位置的數值，使用新顏色
+                // 顯示當前滑鼠位置的數值，比較前一天漲跌
                 if (pdiVal !== null && !isNaN(pdiVal)) {
+                    const isUp = prevPdiVal !== null && !isNaN(prevPdiVal) && pdiVal > prevPdiVal;
+                    const arrow = isUp ? "▲" : "▼";
+                    const arrowColor = isUp ? "#e53935" : "#2e7d32";
+                    
                     ctx.fillStyle = "#fbc02d";  // 黃色
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-                    ctx.fillText(`+DI: ${pdiVal.toFixed(1)}`, 5, 18);
+                    
+                    // 顯示數值和箭頭
+                    const text = `+DI: ${pdiVal.toFixed(1)}`;
+                    ctx.fillText(text, 5, 18);
+                    
+                    // 顯示箭頭
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillStyle = arrowColor;
+                    ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+                    ctx.fillText(arrow, 5 + textWidth + 2, 18);
                 }
                 
                 if (mdiVal !== null && !isNaN(mdiVal)) {
+                    const isUp = prevMdiVal !== null && !isNaN(prevMdiVal) && mdiVal > prevMdiVal;
+                    const arrow = isUp ? "▲" : "▼";
+                    const arrowColor = isUp ? "#e53935" : "#2e7d32";
+                    
                     ctx.fillStyle = "#2196f3";  // 藍色
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-                    ctx.fillText(`-DI: ${mdiVal.toFixed(1)}`, canvasWidth / 4, 18);
+                    
+                    // 顯示數值和箭頭
+                    const text = `-DI: ${mdiVal.toFixed(1)}`;
+                    ctx.fillText(text, canvasWidth / 4, 18);
+                    
+                    // 顯示箭頭
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillStyle = arrowColor;
+                    ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+                    ctx.fillText(arrow, canvasWidth / 4 + textWidth + 2, 18);
                 }
                 
                 if (adxVal !== null && !isNaN(adxVal)) {
+                    const isUp = prevAdxVal !== null && !isNaN(prevAdxVal) && adxVal > prevAdxVal;
+                    const arrow = isUp ? "▲" : "▼";
+                    const arrowColor = isUp ? "#e53935" : "#2e7d32";
+                    
                     ctx.fillStyle = "#e91e63";  // 粉紅色
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-                    ctx.fillText(`ADX: ${adxVal.toFixed(1)}`, canvasWidth / 2, 18);
+                    
+                    // 顯示數值和箭頭
+                    const text = `ADX: ${adxVal.toFixed(1)}`;
+                    ctx.fillText(text, canvasWidth / 2, 18);
+                    
+                    // 顯示箭頭
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillStyle = arrowColor;
+                    ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+                    ctx.fillText(arrow, canvasWidth / 2 + textWidth + 2, 18);
                 }
                 
                 if (adxrVal !== null && !isNaN(adxrVal)) {
+                    const isUp = prevAdxrVal !== null && !isNaN(prevAdxrVal) && adxrVal > prevAdxrVal;
+                    const arrow = isUp ? "▲" : "▼";
+                    const arrowColor = isUp ? "#e53935" : "#2e7d32";
+                    
                     ctx.fillStyle = "#757575";  // 灰色
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-                    ctx.fillText(`ADXR: ${adxrVal.toFixed(1)}`, canvasWidth * 3 / 4, 18);
+                    
+                    // 顯示數值和箭頭
+                    const text = `ADXR: ${adxrVal.toFixed(1)}`;
+                    ctx.fillText(text, canvasWidth * 3 / 4, 18);
+                    
+                    // 顯示箭頭
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillStyle = arrowColor;
+                    ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+                    ctx.fillText(arrow, canvasWidth * 3 / 4 + textWidth + 2, 18);
                 }
             } else {
                 // 清除頂部區域
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(0, 0, canvasWidth, 25);
                 
-                // 顯示最新數值，使用新顏色
-                if (currentPDI !== null && !isNaN(currentPDI) && currentPDI > 0) {
+                // 顯示最新數值，比較前一天漲跌
+                // 計算前一日索引
+                const lastIdx = pdiSeries.length - 1;
+                const prevIdx = lastIdx - 1;
+                
+                // 獲取最新值
+                const curPdiVal = pdiSeries[lastIdx];
+                const curMdiVal = mdiSeries[lastIdx];
+                const curAdxVal = adxSeries ? adxSeries[lastIdx] : null;
+                const curAdxrVal = adxrSeries ? adxrSeries[lastIdx] : null;
+                
+                // 獲取前一日值
+                const prevPdiVal = prevIdx >= 0 ? pdiSeries[prevIdx] : null;
+                const prevMdiVal = prevIdx >= 0 ? mdiSeries[prevIdx] : null;
+                const prevAdxVal = adxSeries && prevIdx >= 0 ? adxSeries[prevIdx] : null;
+                const prevAdxrVal = adxrSeries && prevIdx >= 0 ? adxrSeries[prevIdx] : null;
+                
+                // 顯示最新數值
+                if (curPdiVal !== null && !isNaN(curPdiVal) && curPdiVal > 0) {
+                    const isUp = prevPdiVal !== null && !isNaN(prevPdiVal) && curPdiVal > prevPdiVal;
+                    const arrow = isUp ? "▲" : "▼";
+                    const arrowColor = isUp ? "#e53935" : "#2e7d32";
+                    
                     ctx.fillStyle = "#fbc02d";  // 黃色
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-                    ctx.fillText(`+DI: ${currentPDI.toFixed(1)}`, 5, 18);
+                    
+                    // 顯示數值和箭頭
+                    const text = `+DI: ${curPdiVal.toFixed(1)}`;
+                    ctx.fillText(text, 5, 18);
+                    
+                    // 顯示箭頭
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillStyle = arrowColor;
+                    ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+                    ctx.fillText(arrow, 5 + textWidth + 2, 18);
                 } else {
                     ctx.fillStyle = "#fbc02d";
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
                     ctx.fillText(`+DI: -`, 5, 18);
                 }
                 
-                if (currentMDI !== null && !isNaN(currentMDI) && currentMDI > 0) {
+                if (curMdiVal !== null && !isNaN(curMdiVal) && curMdiVal > 0) {
+                    const isUp = prevMdiVal !== null && !isNaN(prevMdiVal) && curMdiVal > prevMdiVal;
+                    const arrow = isUp ? "▲" : "▼";
+                    const arrowColor = isUp ? "#e53935" : "#2e7d32";
+                    
                     ctx.fillStyle = "#2196f3";  // 藍色
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-                    ctx.fillText(`-DI: ${currentMDI.toFixed(1)}`, canvasWidth / 4, 18);
+                    
+                    // 顯示數值和箭頭
+                    const text = `-DI: ${curMdiVal.toFixed(1)}`;
+                    ctx.fillText(text, canvasWidth / 4, 18);
+                    
+                    // 顯示箭頭
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillStyle = arrowColor;
+                    ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+                    ctx.fillText(arrow, canvasWidth / 4 + textWidth + 2, 18);
                 } else {
                     ctx.fillStyle = "#2196f3";
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
                     ctx.fillText(`-DI: -`, canvasWidth / 4, 18);
                 }
                 
-                if (currentADX !== null && !isNaN(currentADX) && currentADX > 0) {
+                if (curAdxVal !== null && !isNaN(curAdxVal) && curAdxVal > 0) {
+                    const isUp = prevAdxVal !== null && !isNaN(prevAdxVal) && curAdxVal > prevAdxVal;
+                    const arrow = isUp ? "▲" : "▼";
+                    const arrowColor = isUp ? "#e53935" : "#2e7d32";
+                    
                     ctx.fillStyle = "#e91e63";  // 粉紅色
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-                    ctx.fillText(`ADX: ${currentADX.toFixed(1)}`, canvasWidth / 2, 18);
+                    
+                    // 顯示數值和箭頭
+                    const text = `ADX: ${curAdxVal.toFixed(1)}`;
+                    ctx.fillText(text, canvasWidth / 2, 18);
+                    
+                    // 顯示箭頭
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillStyle = arrowColor;
+                    ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+                    ctx.fillText(arrow, canvasWidth / 2 + textWidth + 2, 18);
                 } else {
                     ctx.fillStyle = "#e91e63";
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
                     ctx.fillText(`ADX: -`, canvasWidth / 2, 18);
                 }
                 
-                if (currentADXR !== null && !isNaN(currentADXR) && currentADXR > 0) {
+                if (curAdxrVal !== null && !isNaN(curAdxrVal) && curAdxrVal > 0) {
+                    const isUp = prevAdxrVal !== null && !isNaN(prevAdxrVal) && curAdxrVal > prevAdxrVal;
+                    const arrow = isUp ? "▲" : "▼";
+                    const arrowColor = isUp ? "#e53935" : "#2e7d32";
+                    
                     ctx.fillStyle = "#757575";  // 灰色
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-                    ctx.fillText(`ADXR: ${currentADXR.toFixed(1)}`, canvasWidth * 3 / 4, 18);
+                    
+                    // 顯示數值和箭頭
+                    const text = `ADXR: ${curAdxrVal.toFixed(1)}`;
+                    ctx.fillText(text, canvasWidth * 3 / 4, 18);
+                    
+                    // 顯示箭頭
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillStyle = arrowColor;
+                    ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+                    ctx.fillText(arrow, canvasWidth * 3 / 4 + textWidth + 2, 18);
                 } else {
                     ctx.fillStyle = "#757575";
                     ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif";

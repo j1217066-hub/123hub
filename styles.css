@@ -73,6 +73,7 @@ body {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
+        gap: 8px;
     }
 }
 
@@ -106,12 +107,23 @@ button:active {
     opacity: 0.9;
 }
 
+/* 按鈕顏色 */
 .btn-a { background: #555555; } /* 墨色 */
 .btn-b { background: #6a83a4; } /* 縹色 */
 .btn-c { background: #d05a6e; } /* 胭脂色 */
 .btn-d { background: #6b8e23; } /* 橄欖綠 */
 .btn-e { background: #ff9800; } /* 橙色 */
 .btn-f { background: #9c27b0; } /* 紫色 - DMI多頭 */
+.btn-g { background: #2196f3; } /* 藍色 - OBV轉折（新增） */
+
+/* 按鈕按下效果 */
+.btn-a:active { background: #444444; }
+.btn-b:active { background: #5a7394; }
+.btn-c:active { background: #c04a5e; }
+.btn-d:active { background: #5a7e13; }
+.btn-e:active { background: #e68900; }
+.btn-f:active { background: #8a1fa2; }
+.btn-g:active { background: #1976d2; } /* OBV轉折按下效果 */
 
 button:disabled { 
     background: #dcdcdc !important; 
@@ -754,11 +766,6 @@ canvas {
     }
 }
 
-/* F按鈕的特殊效果 */
-.btn-f:active {
-    background: #7b1fa2; /* 按下時深一點的紫色 */
-}
-
 /* 防止手機雙擊縮放時的文字選擇 */
 .stock-title {
     -webkit-user-select: none;
@@ -841,3 +848,19 @@ button {
     font-size: 13px;
     border: 1px solid #ffe0b2;
 }
+
+/* OBV轉折模式的特殊提示 */
+.obv-turn-hint {
+    color: #2196f3;
+    background: rgba(33, 150, 243, 0.1);
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* 技術指標顏色提示 */
+.lrc9-hint { color: #333; }
+.lsma25-hint { color: #2196f3; }
+.dmi-hint { color: #9c27b0; }
+.obv-hint { color: #2196f3; }

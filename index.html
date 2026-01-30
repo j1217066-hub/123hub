@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Gemini 技術分析選股 v.96</title>
+    <title>Gemini 技術分析選股 v.97</title>
     <!-- 分離的 CSS -->
     <link rel="stylesheet" href="styles.css">
     <!-- 原有的 JS 模組 -->
@@ -20,8 +20,8 @@
 <body>
 <div class="container">
     <div class="header">
-        <h2>Gemini 技術分析選股 v.96</h2>
-        <div class="header-subtitle">手機優化版 | 觸控友好設計 | 完整技術指標顯示 | 新增DMI多頭選項</div>
+        <h2>Gemini 技術分析選股 v.97</h2>
+        <div class="header-subtitle">手機優化版 | 觸控友好設計 | 完整技術指標顯示 | 新增OBV轉折選項</div>
     </div>
     
     <div class="control-panel">
@@ -31,7 +31,8 @@
             <button id="btnC" class="btn-c" onclick="runScan('C')">今日多頭</button>
             <button id="btnD" class="btn-d" onclick="runScan('D')">多頭第一天</button>
             <button id="btnE" class="btn-e" onclick="runScan('E')">起漲預測</button>
-            <button id="btnF" class="btn-f" onclick="runScan('F')">DMI多頭</button>  <!-- 新增F按鈕 -->
+            <button id="btnF" class="btn-f" onclick="runScan('F')">DMI多頭</button>
+            <button id="btnG" class="btn-g" onclick="runScan('G')">OBV轉折</button>  <!-- 新增G按鈕 -->
         </div>
         
         <div id="progress-container">
@@ -59,6 +60,7 @@
         <div class="hint-item">• 拖動滑桿模擬明日走勢</div>
         <div class="hint-item">• DMI線條：+DI(黃)  -DI(藍)  ADX(粉)  ADXR(灰虛線)</div>
         <div class="hint-item">• DMI多頭：+DI > -DI 且 ADX > ADXR 且指標全面上升</div>
+        <div class="hint-item">• OBV轉折：OBV V型反轉且突破均線</div>
     </div>
 </div>
 
@@ -69,7 +71,7 @@
 <script>
 // 頁面載入時檢查必要模組
 window.addEventListener('DOMContentLoaded', function() {
-    console.log('Gemini 技術分析選股 v.96 已載入');
+    console.log('Gemini 技術分析選股 v.97 已載入');
     console.log('包含模組:');
     console.log('- STOCK_MAP:', typeof STOCK_MAP !== 'undefined' ? '已載入' : '未載入');
     console.log('- Indicators:', typeof Indicators !== 'undefined' ? '已載入' : '未載入');

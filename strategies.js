@@ -1,164 +1,159 @@
-/* strategies.js - 選股策略模組 */
+/* strategies.js - 選股策略檢查邏輯 */
 const Strategies = {
-    /**
-     * 檢查是否符合選股條件
-     * @param {Array} prices 收盤價陣列
-     * @param {String} mode 掃描模式
-     * @returns {Boolean}
-     */
     check(prices, mode) {
-        try {
-            // 檢查參數
-            if (!prices || !Array.isArray(prices) || prices.length < 30) {
-                return false;
-            }
-            
-            if (!['A', 'B', 'C', 'D', 'E', 'F'].includes(mode)) {
-                return false;
-            }
-            
-            // 計算所有必要指標
-            const lrc9 = Indicators.getLSMA(prices, 9);
-            const lsma25 = Indicators.getLSMA(prices, 25);
-            const ma20 = Indicators.getSMA(prices, 20);
-
-            // 取得今日最新數值
-            const curLRC9 = lrc9[lrc9.length - 1];
-            const curLSMA25 = lsma25[lsma25.length - 1];
-            const curMA20 = ma20[ma20.length - 1];
-
-            // 取得歷史數值 (用於 V 型反轉)
-            const preLRC9 = lrc9[lrc9.length - 2];
-            const p2LRC9 = lrc9[lrc9.length - 3];
-            const preLSMA25 = lsma25[lsma25.length - 2];
-            const p2LSMA25 = lsma25[lsma25.length - 3];
-
-            // 檢查數值是否有效
-            const isValid = (...values) => {
-                return values.every(v => v !== null && v !== undefined && !isNaN(v));
-            };
-
-            switch (mode) {
-                case 'A': // LRC9 V型反轉
-                    if (!isValid(curLRC9, preLRC9, p2LRC9)) return false;
-                    return curLRC9 > preLRC9 && preLRC9 < p2LRC9;
-
-                case 'B': // LSMA25 V型反轉
-                    if (!isValid(curLSMA25, preLSMA25, p2LSMA25)) return false;
-                    return curLSMA25 > preLSMA25 && preLSMA25 < p2LSMA25;
-
-                case 'C': // 今日多頭：LRC9 > LSMA25 > MA20
-                    if (!isValid(curLRC9, curLSMA25, curMA20)) return false;
-                    return curLRC9 > curLSMA25 && curLSMA25 > curMA20;
-
-                case 'D': // 多頭第一天
-                    if (!isValid(curLRC9, curLSMA25, curMA20, preLRC9, preLSMA25, ma20[ma20.length - 2])) return false;
-                    const todayBullish = curLRC9 > curLSMA25 && curLSMA25 > curMA20;
-                    const yesterdayBullish = preLRC9 > preLSMA25 && preLSMA25 > ma20[ma20.length - 2];
-                    return todayBullish && !yesterdayBullish;
-
-                case 'E': // 起漲預測：目前還不是多頭排列，但明日上漲0-3%就會形成多頭排列
-                    // 1. 檢查目前是不是多頭排列（必須不是）
-                    if (!isValid(curLRC9, curLSMA25, curMA20)) return false;
-                    
-                    const isCurrentlyBullish = curLRC9 > curLSMA25 && curLSMA25 > curMA20;
-                    if (isCurrentlyBullish) {
-                        // 如果現在已經是多頭排列，就不符合條件
-                        return false;
-                    }
-                    
-                    // 2. 取得今日收盤價
-                    const currentClose = prices[prices.length - 1];
-                    if (!currentClose || currentClose <= 0) return false;
-                    
-                    // 3. 檢查明日上漲0-3%是否會形成多頭排列
-                    // 使用更細的間隔增加準確性
-                    const testPercentages = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
-                    
-                    for (const pct of testPercentages) {
-                        // 計算明日價格
-                        const tomorrowPrice = currentClose * (1 + pct / 100);
-                        
-                        // 將明日價格加入序列重新計算指標
-                        const testPrices = [...prices, tomorrowPrice];
-                        const testLRC9 = Indicators.getLSMA(testPrices, 9);
-                        const testLSMA25 = Indicators.getLSMA(testPrices, 25);
-                        const testMA20 = Indicators.getSMA(testPrices, 20);
-                        
-                        // 檢查明日是否會形成多頭排列
-                        const tomorrowIdx = testLRC9.length - 1;
-                        const l = testLRC9[tomorrowIdx];
-                        const m = testLSMA25[tomorrowIdx];
-                        const s = testMA20[tomorrowIdx];
-                        
-                        if (l !== null && m !== null && s !== null && l > m && m > s) {
-                            // 找到一個漲幅會形成多頭排列
-                            return true;
-                        }
-                    }
-                    
-                    // 如果所有漲幅都不會形成多頭排列，則不符合條件
-                    return false;
-
-                case 'F': // DMI多頭：+DI > -DI 且 ADX > ADXR 且 今日指標大於昨日
-                    // 需要至少29天的價格數據來計算DMI（因為需要前一日數據）
-                    if (prices.length < 29) return false;
-                    
-                    // 計算DMI指標
-                    // 由於Indicators.getDMI需要highs, lows, closes，我們使用價格數據模擬
-                    // 實際應用中應該使用完整的高低收數據，這裡為簡化使用收盤價
-                    const highs = prices.map(p => p * 1.01); // 假設高點為收盤價的1.01倍
-                    const lows = prices.map(p => p * 0.99);  // 假設低點為收盤價的0.99倍
-                    
-                    const dmiResult = Indicators.getDMI(highs, lows, prices, 14);
-                    
-                    // 檢查是否有有效的DMI數據
-                    if (!dmiResult || 
-                        dmiResult.pdi === null || dmiResult.mdi === null || 
-                        dmiResult.adx === null || dmiResult.adxr === null) {
-                        return false;
-                    }
-                    
-                    // 取得今日和昨日的DMI值
-                    const lastIdx = prices.length - 1;
-                    
-                    // 從序列中取得今日和昨日值
-                    const curPDI = dmiResult.pdiSeries[lastIdx];
-                    const curMDI = dmiResult.mdiSeries[lastIdx];
-                    const curADX = dmiResult.adxSeries[lastIdx];
-                    const curADXR = dmiResult.adxrSeries[lastIdx];
-                    
-                    const prePDI = dmiResult.pdiSeries[lastIdx - 1];
-                    const preMDI = dmiResult.mdiSeries[lastIdx - 1];
-                    const preADX = dmiResult.adxSeries[lastIdx - 1];
-                    const preADXR = dmiResult.adxrSeries[lastIdx - 1];
-                    
-                    // 檢查所有值是否有效
-                    if (!isValid(curPDI, curMDI, curADX, curADXR, prePDI, preMDI, preADX, preADXR)) {
-                        return false;
-                    }
-                    
-                    // 檢查DMI多頭條件：
-                    // 1. +DI 大於 -DI
-                    // 2. ADX 大於 ADXR
-                    // 3. 今日+DI 大於 昨日+DI
-                    // 4. 今日ADX 大於 昨日ADX
-                    // 5. 今日ADXR 大於 昨日ADXR
-                    const isDMIBullish = 
-                        curPDI > curMDI &&          // +DI > -DI
-                        curADX > curADXR &&         // ADX > ADXR
-                        curPDI > prePDI &&          // 今日+DI > 昨日+DI
-                        curADX > preADX &&          // 今日ADX > 昨日ADX
-                        curADXR > preADXR;          // 今日ADXR > 昨日ADXR
-                    
-                    return isDMIBullish;
-
-                default:
-                    return false;
-            }
-        } catch (error) {
-            console.error('策略檢查錯誤:', error);
+        if (!prices || prices.length < 30) return false;
+        
+        const lrc9 = Indicators.getLSMA(prices, 9);
+        const lsma25 = Indicators.getLSMA(prices, 25);
+        const ma20 = Indicators.getSMA(prices, 20);
+        
+        const lastIdx = prices.length - 1;
+        
+        // 檢查指標是否有效
+        if (lrc9[lastIdx] === null || lsma25[lastIdx] === null || ma20[lastIdx] === null ||
+            isNaN(lrc9[lastIdx]) || isNaN(lsma25[lastIdx]) || isNaN(ma20[lastIdx])) {
             return false;
         }
+        
+        const curL = lrc9[lastIdx];
+        const curM = lsma25[lastIdx];
+        const curS = ma20[lastIdx];
+        
+        switch(mode) {
+            case 'A': // LRC轉折
+                // 檢查今日是否突破且轉折向上
+                if (lastIdx < 2) return false;
+                const prevL1 = lrc9[lastIdx-1];
+                const prevL2 = lrc9[lastIdx-2];
+                const curP = prices[lastIdx];
+                const prevP1 = prices[lastIdx-1];
+                const prevP2 = prices[lastIdx-2];
+                
+                return (curL > prevL1 && prevL1 <= prevL2 && 
+                        curP > prevP1 && prevP1 <= prevP2);
+                
+            case 'B': // LSMA轉折
+                // 檢查今日是否突破且轉折向上
+                if (lastIdx < 2) return false;
+                const prevM1 = lsma25[lastIdx-1];
+                const prevM2 = lsma25[lastIdx-2];
+                const curP_B = prices[lastIdx];
+                const prevP1_B = prices[lastIdx-1];
+                const prevP2_B = prices[lastIdx-2];
+                
+                return (curM > prevM1 && prevM1 <= prevM2 && 
+                        curP_B > prevP1_B && prevP1_B <= prevP2_B);
+                
+            case 'C': // 今日多頭
+                return (curL > curM && curM > curS);
+                
+            case 'D': // 多頭第一天
+                if (lastIdx < 1) return false;
+                const prevL_D = lrc9[lastIdx-1];
+                const prevM_D = lsma25[lastIdx-1];
+                const prevS_D = ma20[lastIdx-1];
+                
+                const wasNotBullish = !(prevL_D > prevM_D && prevM_D > prevS_D);
+                const isNowBullish = (curL > curM && curM > curS);
+                
+                return (wasNotBullish && isNowBullish);
+                
+            case 'F': // DMI多頭
+                // DMI邏輯在 app.js 中單獨處理
+                return false; // 實際DMI檢查在app.js中進行
+                
+            case 'G': // OBV轉折
+                // OBV轉折策略
+                return Strategies.checkOBVTrendReversal(prices);
+                
+            default:
+                return false;
+        }
+    },
+    
+    // OBV轉折策略檢查
+    checkOBVTrendReversal(prices, volumes) {
+        try {
+            if (!prices || prices.length < 60 || !volumes || volumes.length < 60) {
+                return false;
+            }
+            
+            // 計算OBV
+            const obv = Indicators.calcOBV(prices, volumes, 120);
+            const obv30 = Indicators.getSMA(obv, 30);
+            const obv60 = Indicators.getSMA(obv, 60);
+            
+            const lastIdx = obv.length - 1;
+            if (lastIdx < 10) return false;
+            
+            // 檢查OBV和OBV指標是否有效
+            if (obv[lastIdx] === null || obv30[lastIdx] === null || obv60[lastIdx] === null ||
+                isNaN(obv[lastIdx]) || isNaN(obv30[lastIdx]) || isNaN(obv60[lastIdx])) {
+                return false;
+            }
+            
+            const currentOBV = obv[lastIdx];
+            const currentOBV30 = obv30[lastIdx];
+            const currentOBV60 = obv60[lastIdx];
+            
+            // 條件1：OBV突破30日均線
+            const break30 = (currentOBV > currentOBV30);
+            
+            // 條件2：30日均線突破60日均線（或即將突破）
+            const break60 = (currentOBV30 > currentOBV60) || 
+                           (Math.abs(currentOBV30 - currentOBV60) / currentOBV60 < 0.01); // 接近突破
+            
+            // 條件3：OBV呈V型反轉（最近5天最低點，然後回升）
+            let minOBV = Infinity;
+            let minIdx = -1;
+            const lookback = Math.min(20, lastIdx);
+            
+            for (let i = lastIdx - lookback; i <= lastIdx; i++) {
+                if (obv[i] !== null && obv[i] < minOBV) {
+                    minOBV = obv[i];
+                    minIdx = i;
+                }
+            }
+            
+            // 檢查是否有低點且在低點後有上升
+            const hasBottom = (minIdx >= 0 && minIdx < lastIdx - 2);
+            const risingFromBottom = hasBottom ? (currentOBV > minOBV * 1.02) : false; // 從底部上升至少2%
+            
+            // 綜合條件：突破均線且呈V型反轉
+            return (break30 && break60 && risingFromBottom);
+            
+        } catch (error) {
+            console.error('OBV轉折檢查錯誤:', error);
+            return false;
+        }
+    },
+    
+    // 其他輔助方法
+    checkDMIBullish(pdiSeries, mdiSeries, adxSeries, adxrSeries) {
+        if (!pdiSeries || !mdiSeries || !adxSeries || !adxrSeries) return false;
+        
+        const lastIdx = pdiSeries.length - 1;
+        if (lastIdx < 1) return false;
+        
+        const curPDI = pdiSeries[lastIdx];
+        const curMDI = mdiSeries[lastIdx];
+        const curADX = adxSeries[lastIdx];
+        const curADXR = adxrSeries[lastIdx];
+        const prevPDI = pdiSeries[lastIdx-1];
+        const prevMDI = mdiSeries[lastIdx-1];
+        const prevADX = adxSeries[lastIdx-1];
+        const prevADXR = adxrSeries[lastIdx-1];
+        
+        // DMI多頭條件：
+        // 1. +DI > -DI
+        // 2. ADX > ADXR（趨勢強於平均）
+        // 3. +DI上升、-DI下降（多方增強、空方減弱）
+        // 4. ADX上升（趨勢增強）
+        return (curPDI !== null && curMDI !== null && curADX !== null && curADXR !== null &&
+                curPDI > curMDI && 
+                curADX > curADXR &&
+                curPDI > prevPDI && 
+                curMDI < prevMDI && 
+                curADX > prevADX);
     }
 };

@@ -7,7 +7,8 @@ const APP_CONFIG = {
         'C': { name: '今日多頭', color: '#d05a6e' },
         'D': { name: '多頭第一天', color: '#6b8e23' },
         'E': { name: '起漲預測', color: '#ff9800' },
-        'F': { name: 'DMI多頭', color: '#9c27b0' }  // 新增F選項
+        'F': { name: 'DMI多頭', color: '#9c27b0' },
+        'G': { name: 'OBV轉折', color: '#2196f3' }  // 新增G選項 - OBV轉折
     },
     
     // API 設定 - 修改這裡：改為 query2 (舊版 Yahoo API)
@@ -31,7 +32,8 @@ const APP_CONFIG = {
         WARNING: '#ff9800',
         NEUTRAL: '#7f8c8d',
         PRIMARY: '#6b8e23',
-        DMI_BULLISH: '#9c27b0'  // 新增DMI多頭顏色
+        DMI_BULLISH: '#9c27b0',
+        OBV_TURN: '#2196f3'  // 新增OBV轉折顏色
     },
     
     // 排序選項
